@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Connector {
+  id        String   @id @default(cuid())
+  type      String   // gmail, github, obsidian, notion, calendar, drive, slack, filesystem
+  name      String
+  status    String   @default("disconnected") // disconnected, connecting, active, error
+  config    String   @default("{}") // JSON config
+  lastSync  DateTime?
+  itemCount Int      @default(0)
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memories  Memory[]
+}
+
+model Memory {
+  id           String   @id @default(cuid())
+  content      String
+  title        String   @default("")
+  sourceType   String   // email, code, note, document, chat, calendar, bookmark
+  connectorId  String?
+  connector    Connector? @relation(fields: [connectorId], references: [id], onDelete: SetNull)
+  chunkIndex   Int      @default(0)
+  tags         String   @default("[]") // JSON array
+  metadata     String   @default("{}") // JSON metadata
+  accessCount  Int      @default(0)
+  relevanceScore Float  @default(0)
+  sourceTimestamp DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  entities     MemoryEntity[]
+}
+
+model InsightCard {
+  id          String   @id @default(cuid())
+  title       String
+  claim       String
+  type        String   // connection, reminder, draft, summary, suggestion
+  status      String   @default("pending") // pending, surfaced, acted, dismissed, expired
+  action      String?  // suggested action text
+  feedback    String?  // useful, not_useful, already_knew
+  agentType   String   @default("connector") // which agent generated it
+  priority    Int      @default(5) // 1-10
+  memoryIds   String   @default("[]") // JSON array of cited memory IDs
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  title     String        @default("New Conversation")
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  sessionId  String
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role       String   // user, assistant
+  content    String
+  memoryIds  String   @default("[]") // JSON array of cited memory IDs
+  createdAt  DateTime @default(now())
+}
+
+model AgentTrace {
+  id          String   @id @default(cuid())
+  agentType   String   // indexer, researcher, connector, drafter, planner, orchestrator
+  status      String   // running, completed, failed
+  input       String   @default("{}") // JSON input
+  output      String?  // JSON output
+  memoryIds   String   @default("[]") // JSON array
+  error       String?
+  durationMs  Int      @default(0)
+  steps       String   @default("[]") // JSON array of trace steps
+  createdAt   DateTime @default(now())
+}
+
+model Entity {
+  id           String   @id @default(cuid())
+  name         String
+  type         String   // person, project, repository, document, organization
+  canonicalName String  @default("")
+  aliases      String   @default("[]") // JSON array
+  metadata     String   @default("{}") // JSON metadata
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memories     MemoryEntity[]
+}
+
+model MemoryEntity {
+  id        String   @id @default(cuid())
+  memoryId  String
+  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  entityId  String
+  entity    Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  role      String   @default("mentioned") // mentioned, primary, author, assignee
+
+  @@unique([memoryId, entityId])
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String @default("")
+}
