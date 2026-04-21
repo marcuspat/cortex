@@ -162,6 +162,9 @@ Setting (key-value configuration)
 | Styling | Tailwind CSS 4 + shadcn/ui |
 | Database | SQLite via Prisma ORM |
 | State | Zustand (client) + React hooks |
+| Testing | Vitest + React Testing Library |
+| CI/CD | GitHub Actions |
+| Issue Tracking | Beads (git-based) |
 | Animations | Framer Motion |
 | Icons | Lucide React |
 | Theming | next-themes (dark/light) |
@@ -171,10 +174,11 @@ Setting (key-value configuration)
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) (v1.0+) or Node.js (v18+)
+- Node.js (v20+) - [Download](https://nodejs.org/)
 - Git
+- npm (comes with Node.js)
 
-### Installation
+### Quick Start
 
 ```bash
 # Clone the repository
@@ -182,23 +186,42 @@ git clone https://github.com/marcuspat/cortex.git
 cd cortex
 
 # Install dependencies
-bun install
+npm install
 
 # Set up environment variables
 cp .env.example .env.local
 # Edit .env.local with your configuration
 
 # Push database schema
-bun run db:push
+npm run db:push
 
-# Seed with demo data
-bunx tsx prisma/seed.ts
+# Seed with demo data (optional)
+npx tsx prisma/seed.ts
 
 # Start development server
-bun run dev
+npm run dev
 ```
 
 The application will be available at `http://localhost:3000`.
+
+### Development Workflow
+
+```bash
+# 1. Start development server
+npm run dev
+
+# 2. Run tests in watch mode (in another terminal)
+npm test -- --watch
+
+# 3. Check linting before committing
+npm run lint
+
+# 4. Build for production
+npm run build
+
+# 5. Test production build locally
+npm run start
+```
 
 ### Environment Variables
 
@@ -212,13 +235,55 @@ The application will be available at `http://localhost:3000`.
 
 | Command | Description |
 |---------|-------------|
-| `bun run dev` | Start development server on port 3000 |
-| `bun run build` | Create production build |
-| `bun run start` | Start production server |
-| `bun run lint` | Run ESLint |
-| `bun run db:push` | Push Prisma schema to database |
-| `bun run db:generate` | Generate Prisma Client |
-| `bun run db:reset` | Reset database (destructive) |
+| `npm run dev` | Start development server on port 3000 |
+| `npm run build` | Create production build |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run Vitest test suite |
+| `npm run test:ui` | Run Vitest with UI interface |
+| `npm run test:coverage` | Generate test coverage report |
+| `npm run db:push` | Push Prisma schema to database |
+| `npm run db:generate` | Generate Prisma Client |
+| `npm run db:reset` | Reset database (destructive) |
+
+### Testing
+
+The project includes a comprehensive test suite using **Vitest** and **React Testing Library**:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests with UI interface
+npm run test:ui
+
+# Generate coverage report
+npm run test:coverage
+```
+
+**Current Coverage:** 91.66% (exceeds 50% target)
+
+**Test Structure:**
+- Tests are located alongside source files: `*.test.ts`
+- API route tests mock database calls for isolated testing
+- Component tests use React Testing Library for user-focused assertions
+- Coverage reports are generated in the `coverage/` directory
+
+### Continuous Integration
+
+The project uses **GitHub Actions** for automated CI/CD:
+
+- **Triggers:** Push to `main` branch, pull requests
+- **Pipeline Steps:**
+  1. Install dependencies (with npm caching)
+  2. Generate Prisma Client
+  3. Type check (`tsc --noEmit`)
+  4. Lint (`eslint`)
+  5. Run tests (`vitest run`)
+  6. Generate coverage report
+  7. Upload coverage artifacts (7-day retention)
+
+View CI status at: `github.com/marcuspat/cortex/actions`
 
 ## Project Structure
 
@@ -266,8 +331,20 @@ cortex/
 │   │   ├── helpers.ts              # Utility functions
 │   │   └── utils.ts                # shadcn/ui utilities
 │   └── hooks/                      # React hooks
+├── .github/
+│   └── workflows/
+│       └── ci.yml                   # GitHub Actions CI pipeline
 ├── .gitignore
-├── eslint.config.mjs
+├── .beads/                          # Beads tracking infrastructure
+│   ├── hooks/                       # Git hooks for issue tracking
+│   ├── config.yaml                  # Beads configuration
+│   └── metadata.json                # Tracking metadata
+├── AGENTS.md                        # Agent types and swarm recipes
+├── CLAUDE.md                        # Behavioral rules and quality gates
+├── eslint.config.mjs                # ESLint configuration
+├── vitest.config.ts                 # Vitest test configuration
+├── tests/
+│   └── setup.ts                     # Test setup with jsdom
 ├── next.config.ts
 ├── tailwind.config.ts
 ├── tsconfig.json
