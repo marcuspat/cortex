@@ -8,4 +8,4 @@ cmds = ["npm ci", "npx prisma generate"]
 cmds = ["npm run build", "npx prisma generate"]
 
 [phases.start]
-cmd = "node .next/standalone/server.js"
+cmd = "npx prisma generate && node .next/standalone/server.js"
