@@ -50,5 +50,16 @@ test
 prompt
 
 server.log
+
 # Skills directory
 /skills/
+
+# Database files
+db/*.db
+db/*.db-journal
+
+# Uploads
+/upload/
+
+# Agent context
+/agent-ctx/
