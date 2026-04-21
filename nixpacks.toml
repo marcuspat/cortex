@@ -1,8 +1,11 @@
 [phases.setup]
 nixPkgs = ["nodejs-20"]
 
+[phases.install]
+cmds = ["npm ci", "npx prisma generate"]
+
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["npm run build", "npx prisma generate"]
 
 [phases.start]
 cmd = "node .next/standalone/server.js"
