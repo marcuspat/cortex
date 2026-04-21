@@ -146,7 +146,10 @@
 - `git status` shows clean working tree (no staged or unstaged changes)
 - `git log --oneline -5` shows the new commits
 **rollback_hint:** `git reset --soft HEAD~N` where N = number of commits created
-**status:** TODO
+**status:** DONE
+**completed_at:** 2026-04-21 07:47 UTC
+**actual_minutes:** 8
+**commits:** 4395b08, 008bb68, ac6a93d
 **commit_plan: |
   Chunk 1: Beads infrastructure (9 files)
     "chore: add Beads tracking infrastructure"
@@ -173,7 +176,9 @@
 - `npm test` runs vitest successfully (exit code 0, even with no tests)
 - `npm run test:coverage` generates coverage report with v8 provider
 **rollback_hint:** `npm uninstall vitest @vitest/ui @testing-library/react @testing-library/jest-dom @vitejs/plugin-react && rm -f vitest.config.ts tests/setup.ts`
-**status:** TODO
+**status:** DONE
+**completed_at:** 2026-04-21 07:56 UTC
+**actual_minutes:** 24
 
 ---
 
@@ -191,7 +196,10 @@
 - Breaking the route (e.g., changing return type) causes test to fail
 - Test file committed with message `test(api/memories): add GET route tests`
 **rollback_hint:** `git revert HEAD` (removes test commit)
-**status:** TODO
+**status:** DONE
+**completed_at:** 2026-04-21 13:23 UTC
+**actual_minutes:** 46
+**commits:** 9217370
 
 ---
 
@@ -210,7 +218,11 @@
 - CI runs green on GitHub Actions (verified via gh CLI or web)
 - CI status URL recorded in this phase plan
 **rollback_hint:** `rm -rf .github && git revert HEAD`
-**status:** TODO
+**status:** DONE
+**completed_at:** 2026-04-21 08:44 UTC
+**actual_minutes:** 5
+**commits:** 6c8d831
+**notes:** GitHub CLI unavailable for CI status verification
 
 ---
 
@@ -283,7 +295,7 @@ Each swarm produces:
 | P0    | DONE   | 07:35 | 07:37 | 3 | N/A | Baseline verified |
 | P0a   | DONE   | 07:38 | 07:39 | 1 | N/A | Lockfile generated |
 | P1    | DONE   | 07:39 | 07:39 | 0 | N/A | Completed during P0a |
-| P1a   | TODO   | -     | -   | - | - | |
+| P1a   | N/A   | -     | -   | - | - | Not needed (P0a succeeded) |
 | P2    | DONE   | 07:40 | 07:42 | 8 | N/A | Using local Prisma 6.19.3 |
 | P3    | DONE   | 07:43 | 07:44 | 2 | N/A | Both additions staged |
 | P4    | DONE   | 07:45 | 07:47 | 8 | 4395b08,008bb68,ac6a93d | 3 commits created |
@@ -294,7 +306,7 @@ Each swarm produces:
 
 ---
 
-### P0a — Generate package-lock.json
+### P0a — Generate package-lock.json (COMPLETE)
 **id:** P0a
 **title:** Generate package-lock.json — run npm install to create missing lockfile
 **depends_on:** []
