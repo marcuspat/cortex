@@ -152,3 +152,19 @@ Work Log:
 Stage Summary:
 - Complete working MVP with 7 views, 15 API routes, real-time data
 - All linting passes, all APIs functional, all views rendering
+
+---
+Task ID: 14
+Agent: Main Orchestrator
+Task: Add AW Labs & CM Labs logos and presentation blurb to README
+
+Work Log:
+- Added AWLabs logo (https://i.ibb.co/N6m72sYQ/AWLabs.png) and CMLabs logo (https://i.ibb.co/k66t5rxs/CMLabs.png) to README header
+- Added "Presented by" section with both logos side by side, linked to their respective GitHub orgs
+- Added descriptive blurb about AW Labs and CM Labs collaborative research initiative
+- Added matching logo footer section at the bottom of the README
+- Committed and pushed to GitHub (marcuspat/cortex)
+
+Stage Summary:
+- README updated with AW Labs / CM Labs branding at top and bottom
+- Commit: `1ddee2b` pushed to main
