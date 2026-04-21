@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@claude-flow/plugin-agentic-qe": "^3.0.0-alpha.4",
+    "@claude-flow/plugin-gastown-bridge": "^0.1.3",
+    "@claude-flow/plugin-perf-optimizer": "^3.0.0-alpha.1",
+    "@claude-flow/plugin-test-intelligence": "^3.0.0-alpha.1",
+    "@claude-flow/teammate-plugin": "^1.0.0-alpha.1"
+  }
+}
