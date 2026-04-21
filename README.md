@@ -12,6 +12,28 @@
   An open-source, privacy-first multi-agent system that passively indexes your digital life and proactively surfaces connections, drafts decisions, and suggests actions — before you ask.
 </p>
 
+<br />
+
+<p align="center">
+  <strong>Presented by</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/AWLabs">
+    <img src="https://i.ibb.co/N6m72sYQ/AWLabs.png" alt="AWLabs" width="200" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/CMLabs">
+    <img src="https://i.ibb.co/k66t5rxs/CMLabs.png" alt="CMLabs" width="200" />
+  </a>
+</p>
+
+<p align="center">
+  <em>Cortex is a collaborative research initiative by <strong>AW Labs</strong> and <strong>CM Labs</strong> — two labs focused on pushing the boundaries of AI-powered knowledge systems and autonomous agent architectures. Together, they explore how intelligent agents can augment human cognition by unifying fragmented digital knowledge into a single, proactive intelligence layer. Cortex represents their shared vision: a system that doesn't just store information, but actively reasons across it to surface what matters, when it matters.</em>
+</p>
+
+<br />
+
 <p align="center">
   <a href="#features">Features</a> &middot;
   <a href="#architecture">Architecture</a> &middot;
@@ -392,5 +414,14 @@ This project is open source and available under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  Built with Next.js, TypeScript, Tailwind CSS, and shadcn/ui
+  <strong>Presented by</strong><br />
+  <a href="https://github.com/AWLabs">
+    <img src="https://i.ibb.co/N6m72sYQ/AWLabs.png" alt="AWLabs" width="140" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/CMLabs">
+    <img src="https://i.ibb.co/k66t5rxs/CMLabs.png" alt="CMLabs" width="140" />
+  </a>
+  <br /><br />
+  <em>Built with Next.js, TypeScript, Tailwind CSS, and shadcn/ui</em>
 </p>
