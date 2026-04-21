@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/AWLabs">
+  <a href="https://adventureonthewave.com">
     <img src="https://i.ibb.co/N6m72sYQ/AWLabs.png" alt="AWLabs" width="200" />
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/CMLabs">
+  <a href="https://creandotumatrix.com">
     <img src="https://i.ibb.co/k66t5rxs/CMLabs.png" alt="CMLabs" width="200" />
   </a>
 </p>
@@ -415,11 +415,11 @@ This project is open source and available under the [MIT License](LICENSE).
 
 <p align="center">
   <strong>Presented by</strong><br />
-  <a href="https://github.com/AWLabs">
+  <a href="https://adventureonthewave.com">
     <img src="https://i.ibb.co/N6m72sYQ/AWLabs.png" alt="AWLabs" width="140" />
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/CMLabs">
+  <a href="https://creandotumatrix.com">
     <img src="https://i.ibb.co/k66t5rxs/CMLabs.png" alt="CMLabs" width="140" />
   </a>
   <br /><br />
