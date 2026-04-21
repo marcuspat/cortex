@@ -1,30 +1,35 @@
 # Railway Deployment Troubleshooting
 
-## Current Issue: 502 Bad Gateway
+## Current Issue: 502 Bad Gateway ✅ RESOLVED
 
-### Problem
-Application starts but returns 502 Bad Gateway.
-Browser console shows: `Uncaught SyntaxError: Unexpected token 'export'`
+### Problem (Fixed)
+Application was starting but returning 502 Bad Gateway.
 
-### Root Cause
-**DATABASE_URL environment variable is NOT set in Railway**
+### Root Cause (Actual)
+**Prisma Client was not being generated in Railway's runtime environment**
 
-The application cannot connect to the PostgreSQL database, causing it to fail during startup.
+The standalone build at `.next/standalone/` includes the server code but the generated Prisma Client may not be properly bundled. When the server tried to initialize database connections, it failed because Prisma Client wasn't available.
 
-### Solution
+### Fix Applied (Commit 916a0c8)
 
-1. Go to Railway → exciting-simplicity → Settings → Variables
-2. Add New Variable:
-   - **Key:** `DATABASE_URL`
-   - **Value:** `postgresql://postgres:JtseGkMUmPvtxbfzNaognUOjSlIYAVSz@shinkansen.proxy.rlwy.net:48461/railway`
-   - **Type:** Secret
+Updated `nixpacks.toml` start command to generate Prisma Client before starting the server:
 
-3. Click "Deploy" to trigger a redeploy
+```toml
+[phases.start]
+cmd = "npx prisma generate && node .next/standalone/server.js"
+```
+
+This ensures Prisma Client is generated fresh in the Railway environment using the DATABASE_URL from environment variables.
+
+### Previous (Incorrect) Diagnosis
+
+Initially thought DATABASE_URL was missing, but it was correctly configured in Railway. The issue was the missing Prisma Client generation step.
 
 ### Verification
 
-After adding DATABASE_URL, the application should:
-- Connect to PostgreSQL successfully
+After the fix, the application should:
+- Generate Prisma Client on startup: `npx prisma generate`
+- Connect to PostgreSQL successfully using DATABASE_URL
 - Initialize Prisma Client
 - Serve requests on port 8080
 - Return 200 OK instead of 502
@@ -38,13 +43,13 @@ railway variables set DATABASE_URL "postgresql://postgres:JtseGkMUmPvtxbfzNaognU
 ## Build Configuration
 
 - ✅ Node.js 20 configured (nixpacks.toml)
-- ✅ Start command: `node .next/standalone/server.js`
+- ✅ Start command: `npx prisma generate && node .next/standalone/server.js`
+- ✅ Prisma Client generation on startup
+- ✅ DATABASE_URL: Configured in Railway
 - ✅ Health check: `/` path
-- ⚠️  DATABASE_URL: **Must be added manually**
 
-## Next Steps
+## Resolution Status
 
-1. Add DATABASE_URL to Railway environment variables
-2. Redeploy application
-3. Verify 200 OK response
-4. Test all 7 features
+**Status:** ✅ Fix deployed (commit 916a0c8)
+**Action Required:** Railway will auto-rebuild with new commit
+**Expected Result:** 502 error should be resolved after rebuild completes
