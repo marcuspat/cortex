@@ -1,41 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
+import { UpsertSettingsSchema } from '@/lib/validations/settings'
+import { validateRequest, validationErrorResponse } from '@/lib/validate'
+import { AuthRequiredError } from '@/lib/errors'
 
 export async function GET() {
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    throw new AuthRequiredError()
+  }
+
   try {
-    const settings = await db.setting.findMany()
+    const settings = await db.setting.findMany({
+      where: { userId },
+    })
     const settingsMap: Record<string, string> = {}
     for (const setting of settings) {
       settingsMap[setting.key] = setting.value
     }
-    return NextResponse.json(settingsMap)
+
+    return NextResponse.json({
+      data: settingsMap,
+    })
   } catch (error) {
     console.error('Settings get error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch settings' },
-      { status: 500 }
-    )
+    throw error
   }
 }
 
 export async function PUT(request: NextRequest) {
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    throw new AuthRequiredError()
+  }
+
   try {
     const body = await request.json()
-    const entries = Object.entries(body) as [string, string][]
 
-    if (!entries.length) {
+    // Validate settings (basic check, will use Zod in production)
+    if (typeof body !== 'object' || body === null) {
       return NextResponse.json(
-        { error: 'No settings provided' },
+        {
+          error: 'Settings must be an object',
+          code: 'VALIDATION_ERROR',
+        },
         { status: 400 }
       )
     }
 
+    const entries = Object.entries(body) as [string, any][]
+
+    if (!entries.length) {
+      return NextResponse.json(
+        {
+          error: 'No settings provided',
+          code: 'VALIDATION_ERROR',
+        },
+        { status: 400 }
+      )
+    }
+
+    // Upsert all settings with userId
     const results = await Promise.all(
       entries.map(([key, value]) =>
         db.setting.upsert({
-          where: { key },
+          where: { key, userId },
           update: { value: String(value) },
-          create: { key, value: String(value) },
+          create: { key, value: String(value), userId },
         })
       )
     )
@@ -45,12 +79,11 @@ export async function PUT(request: NextRequest) {
       settingsMap[result.key] = result.value
     }
 
-    return NextResponse.json(settingsMap)
+    return NextResponse.json({
+      data: settingsMap,
+    })
   } catch (error) {
     console.error('Settings update error:', error)
-    return NextResponse.json(
-      { error: 'Failed to update settings' },
-      { status: 500 }
-    )
+    throw error
   }
 }

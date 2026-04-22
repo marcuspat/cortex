@@ -1,49 +1,56 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { AGENT_INFO } from '@/lib/constants';
-import type { AgentStatus, AgentType } from '@/lib/types';
+import { NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth-helpers'
+import { db } from '@/lib/db'
+import { AGENT_INFO } from '@/lib/constants'
+import type { AgentStatus, AgentType } from '@/lib/types'
+import { AuthRequiredError } from '@/lib/errors'
 
 export async function GET() {
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    throw new AuthRequiredError()
+  }
+
   try {
     const allTraces = await db.agentTrace.findMany({
+      where: { userId },
       orderBy: { createdAt: 'desc' },
-    });
+    })
 
     // Build a lookup for quick access
-    const tracesByAgent = new Map<AgentType, typeof allTraces>();
+    const tracesByAgent = new Map<AgentType, typeof allTraces>()
     for (const agent of AGENT_INFO) {
-      tracesByAgent.set(agent.type, []);
+      tracesByAgent.set(agent.type, [])
     }
     for (const trace of allTraces) {
-      const agentType = trace.agentType as AgentType;
-      const existing = tracesByAgent.get(agentType) ?? [];
-      existing.push(trace);
-      tracesByAgent.set(agentType, existing);
+      const agentType = trace.agentType as AgentType
+      const existing = tracesByAgent.get(agentType) ?? []
+      existing.push(trace)
+      tracesByAgent.set(agentType, existing)
     }
 
     const agentStatuses: AgentStatus[] = AGENT_INFO.map((info) => {
-      const traces = tracesByAgent.get(info.type) ?? [];
-      const totalRuns = traces.length;
-      const completedRuns = traces.filter((t) => t.status === 'completed').length;
-      const failedRuns = traces.filter((t) => t.status === 'failed').length;
-      const runningRuns = traces.filter((t) => t.status === 'running').length;
-      const lastTrace = traces[0] ?? null;
+      const traces = tracesByAgent.get(info.type) ?? []
+      const totalRuns = traces.length
+      const completedRuns = traces.filter((t) => t.status === 'completed').length
+      const failedRuns = traces.filter((t) => t.status === 'failed').length
+      const runningRuns = traces.filter((t) => t.status === 'running').length
+      const lastTrace = traces[0] ?? null
 
       const avgDurationMs =
         totalRuns > 0
-          ? Math.round(
-              traces.reduce((sum, t) => sum + t.durationMs, 0) / totalRuns
-            )
-          : 0;
+          ? Math.round(traces.reduce((sum, t) => sum + t.durationMs, 0) / totalRuns)
+          : 0
 
       // Determine current agent status
-      let status: AgentStatus['status'] = 'idle';
+      let status: AgentStatus['status'] = 'idle'
       if (runningRuns > 0) {
-        status = 'running';
+        status = 'running'
       } else if (failedRuns > 0 && completedRuns === 0 && totalRuns > 0) {
-        status = 'error';
+        status = 'error'
       } else if (failedRuns > completedRuns && totalRuns > 3) {
-        status = 'error';
+        status = 'error'
       }
 
       return {
@@ -57,15 +64,14 @@ export async function GET() {
         failCount: failedRuns,
         avgDurationMs,
         status,
-      };
-    });
+      }
+    })
 
-    return NextResponse.json(agentStatuses);
+    return NextResponse.json({
+      data: agentStatuses,
+    })
   } catch (error) {
-    console.error('Agent status error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch agent status' },
-      { status: 500 }
-    );
+    console.error('Agent status error:', error)
+    throw error
   }
 }

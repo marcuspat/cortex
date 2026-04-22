@@ -1,29 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
+import { CreateChatMessageSchema } from '@/lib/validations/chat'
+import { validateRequest, validationErrorResponse } from '@/lib/validate'
+import { NotFoundError, AuthRequiredError } from '@/lib/errors'
 
+// POST /api/chat/sessions/[id]/messages - Send a message in a chat session
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    throw new AuthRequiredError()
+  }
+
+  // Validate input
+  const { data, error } = await validateRequest(CreateChatMessageSchema, request)
+
+  if (error || !data) {
+    return validationErrorResponse(error)
+  }
+
   try {
     const { id } = await params
-    const body = await request.json()
-    const { content, role } = body
 
-    if (!content) {
-      return NextResponse.json(
-        { error: 'Message content is required' },
-        { status: 400 }
-      )
-    }
+    // Verify session belongs to user
+    const session = await db.chatSession.findFirst({
+      where: { id, userId },
+    })
 
-    // Verify session exists
-    const session = await db.chatSession.findUnique({ where: { id } })
     if (!session) {
-      return NextResponse.json(
-        { error: 'Chat session not found' },
-        { status: 404 }
-      )
+      throw new NotFoundError('Chat session')
     }
 
     // Extract keywords from user message for memory search
@@ -45,7 +54,7 @@ export async function POST(
       'which', 'who', 'whom', 'tell', 'find', 'show', 'get', 'know', 'think',
     ])
 
-    const keywords = content
+    const keywords = data.content
       .toLowerCase()
       .replace(/[^\w\s]/g, '')
       .split(/\s+/)
@@ -53,14 +62,17 @@ export async function POST(
 
     // Search memories based on keywords
     const relevantMemories = await db.memory.findMany({
-      where: keywords.length > 0
-        ? {
-            OR: keywords.flatMap((keyword: string) => [
-              { title: { contains: keyword } },
-              { content: { contains: keyword } },
-            ]),
-          }
-        : {},
+      where: {
+        userId,
+        ...(keywords.length > 0
+          ? {
+              OR: keywords.flatMap((keyword: string) => [
+                { title: { contains: keyword, mode: 'insensitive' } },
+                { content: { contains: keyword, mode: 'insensitive' } },
+              ]),
+            }
+          : {}),
+      },
       take: 5,
       orderBy: { relevanceScore: 'desc' },
     })
@@ -71,8 +83,8 @@ export async function POST(
     const userMessage = await db.chatMessage.create({
       data: {
         sessionId: id,
-        role: role || 'user',
-        content,
+        role: data.role || 'user',
+        content: data.content,
         memoryIds: JSON.stringify([]),
       },
     })
@@ -92,7 +104,7 @@ export async function POST(
         return `- **${m.title || 'Untitled'}** (${m.sourceType}): ${preview}`
       })
 
-      assistantContent = `Based on your query, I found ${relevantMemories.length} relevant memory item${relevantMemories.length > 1 ? 's' : ''}:\n\n${memorySummaries.join('\n\n')}\n\n---\nWould you like me to dive deeper into any of these, or search for something else?`
+      assistantContent = `Based on your query, I found ${relevantMemories.length} relevant memory item${relevantMemories.length > 1 ? 's' : ''}:\n\n${memorySummaries.join('\n\n')}\n\n---\n\nWould you like me to dive deeper into any of these, or search for something else?`
     }
 
     // Create assistant message
@@ -106,15 +118,14 @@ export async function POST(
     })
 
     return NextResponse.json({
-      userMessage,
-      assistantMessage,
-      relevantMemories: memoryIds,
+      data: {
+        userMessage,
+        assistantMessage,
+        relevantMemories: memoryIds,
+      },
     })
   } catch (error) {
     console.error('Chat message create error:', error)
-    return NextResponse.json(
-      { error: 'Failed to create message' },
-      { status: 500 }
-    )
+    throw error
   }
 }
