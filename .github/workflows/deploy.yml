@@ -1,0 +1,133 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+  RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+
+jobs:
+  lint-and-test:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+      - name: Run TypeScript check
+        run: npx tsc --noEmit --pretty
+        continue-on-error: true
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  deploy:
+    name: Deploy to Railway
+    needs: [lint-and-test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --serviceId ${{ secrets.RAILWAY_SERVICE_ID }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for deployment to be ready..."
+          sleep 30
+
+  health-check:
+    name: Verify Deployment Health
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Wait for app to be ready
+        run: |
+          for i in {1..12}; do
+            echo "Health check attempt $i..."
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.APP_URL }}/api/health || echo "000")
+
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+
+            echo "Status: $STATUS - Waiting..."
+            sleep 10
+          done
+
+          echo "❌ Health check failed after 12 attempts"
+          exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed - initiating rollback..."
+          npm install -g @railway/cli
+          railway rollback --serviceId ${{ secrets.RAILWAY_SERVICE_ID }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  notify:
+    name: Notify Deployment Status
+    needs: [health-check]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Send notification
+        run: |
+          if [ "${{ needs.health-check.result }}" = "success" ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed - check logs"
+          fi

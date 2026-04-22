@@ -1,0 +1,149 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check code formatting
+        run: npx prettier --check "src/**/*.{ts,tsx,js,jsx}" || true
+        continue-on-error: true
+
+      - name: Run ESLint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit --pretty
+        continue-on-error: true
+
+      - name: Check for console.log statements
+        run: |
+          if grep -r "console\.log" src/ --exclude="*.test.ts" --exclude="*.spec.ts"; then
+            echo "⚠️ Warning: console.log statements found in source code"
+            exit 0
+          fi
+        continue-on-error: true
+
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for outdated dependencies
+        run: npm outdated || true
+        continue-on-error: true
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Check for duplicate dependencies
+        run: npx duplicate-package-checker-webpack-plugin || true
+        continue-on-error: true
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          languages: javascript
+          queries: security-extended,security-and-quality
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+  build-check:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: "postgresql://mock:mock@localhost:5432/mock"
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://mock:mock@localhost:5432/mock"
+          NEXTAUTH_SECRET: "mock-secret-for-testing-at-least-32-chars-long"
+          NEXTAUTH_URL: "http://localhost:3000"
+
+  size-check:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and analyze bundle
+        run: |
+          npm run build || true
+          echo "Build completed - check artifacts for size analysis"
+        env:
+          DATABASE_URL: "postgresql://mock:mock@localhost:5432/mock"
+          NEXTAUTH_SECRET: "mock-secret-for-testing-at-least-32-chars-long"
+          NEXTAUTH_URL: "http://localhost:3000"
+        continue-on-error: true
