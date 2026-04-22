@@ -1,323 +1,74 @@
-# CLAUDE.md — TurboFlow 4.0 / Ruflo v3.5
-
-```
-PROJECT_ID=rentamls
-BRANCH=feat/search-feature
-```
-
-**Primary model: GLM-5.1** (via Coding Plan). Claude Opus on-demand for complex reasoning.
-**Tech Stack:** Next.js 16.2.0, React 19, Prisma ORM, PostgreSQL (prod) / SQLite (dev), Railway
-
----
-
-## BEHAVIORAL RULES
-
-- Do what has been asked; nothing more, nothing less
-- NEVER create files unless absolutely necessary — prefer editing existing files
-- NEVER proactively create .md or README files unless explicitly requested
-- NEVER save working files or tests to the root folder
-- ALWAYS read a file before editing it
-- NEVER commit secrets, credentials, or .env files
-- ALWAYS use non-interactive shell flags — `cp -f`, `mv -f`, `rm -f`
-- ALWAYS use `--json` flag with `bd` commands
-- ALWAYS run tests before committing (if a test suite exists)
-- After 3 failed approaches to the same problem — STOP and ask the human
-- **NEVER merge to `main` without the Triple-Gate Merge Protocol**
-- **NEVER force-push to `main` under any circumstances**
-- Batch ALL related operations in a single message (todos, agent spawns, file ops, memory ops)
-
----
-
-## WORK QUALITY
-
-### Plan First
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- Write detailed specs upfront to reduce ambiguity
-- If something goes sideways, STOP and re-plan — don't keep pushing a broken approach
-- Use plan mode for verification steps, not just building
-
-### Autonomous Execution
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests — then resolve them
-- Go fix failing CI tests without being told how
-- Use subagents liberally to keep main context window clean — offload research, exploration, and parallel analysis
-
-### Verification Before Done
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
-
-### Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: implement the proper solution, not the quick patch
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
-
-### Self-Improvement Loop
-- After ANY correction from the human, store the lesson: `bd remember "lesson/<topic>" "what went wrong and the rule to prevent it"`
-- Write rules for yourself that prevent the same mistake
-- Review stored lessons at session start: `npx ruflo@latest memory search -q "lesson" --limit 10`
-
----
-
-## TRIPLE-GATE MERGE PROTOCOL
-
-Any merge into `main` (`master`/`production`/`prod`/`release`) = 3 consecutive human confirmations. No agent may merge autonomously.
-
-```
-GATE 1 — "🔒 MERGE GATE 1/3: Merging [branch] → main. [changes, risk]. Confirm?"
-GATE 2 — "🔒 MERGE GATE 2/3: Tests: [pass/fail]. Conflicts: [y/n]. Confirm?"
-GATE 3 — "🔒 MERGE GATE 3/3: FINAL. Type 'yes' to execute."
-```
-
-Each gate = separate turn. Non-`yes` = abort. Does NOT apply to feature-to-feature merges.
-
-**Destructive commands** (`git reset --hard`, `rm -rf`, `prisma migrate reset`, `DROP TABLE`): one confirmation. Format: `⚠️ DESTRUCTIVE: [command]. [consequence]. Confirm?`
-
-**Rollback:** `git revert --no-commit HEAD` → test → commit → push (skips Triple-Gate) → tell human → `bd create` the bug → `bd remember "revert/[branch]" "cause"`
-
-**Conflicts:** Never silently auto-resolve. Simple: resolve + show. Complex: show both sides, ask human.
-
----
-
-## MODEL ROUTING
-
-**GLM-5.1 (default):** 200K context, 131K max output. No tiered routing. Generate complete files in one pass for new files >100 lines. Give full task context and let it chain steps autonomously.
-
-**Claude Opus (on-demand):** Check `[AGENT_BOOSTER_AVAILABLE]` / `[TASK_MODEL_RECOMMENDATION]` hooks. Tier 1: Agent Booster (WASM, $0) for simple transforms. Tier 2: Haiku. Tier 3: Sonnet/Opus. Hard cap: $15/hr.
-
-**Token optimization:** Use `--json` on all `bd` commands. Prefer `bd ready --json` over `bd list`. Use `bd prime` sparingly. When context fills: `bd compact`. Offload verbose explanations to `bd comments` and `memory store` instead of chat.
-
-**MCP tools:** CLI tools (bd, npx ruflo, npx gitnexus) work regardless of model. If MCP server calls fail with GLM-5.1, use the CLI equivalent. Run `npx ruflo@latest doctor --fix` to check MCP registration.
-
----
-
-## BEADS (bd) — Project Truth
-
-ALL issue tracking, decisions, blockers, and discovered work goes in Beads — never in markdown TODOs.
-
-**CRITICAL:** Never directly read/write `.beads/issues.jsonl`. Command is `bd`, NOT `beads`. Run `bd sync flush` after batch ops. Every `bd create` MUST include `--description` — self-sufficient, as if the reader has never seen your conversation.
-
-**Core commands:**
-
-```bash
-bd ready --json                          # What's unblocked? (session start)
-bd update <id> --claim --json            # Claim before starting
-bd comments add <id> "progress" --json   # Record findings mid-task
-bd close <id> --reason "what+why" --json # Complete (prove it works first)
-bd create "Title" --description="full context" -t bug|feature|task -p 0-4 --json
-bd remember "key" "value"                # Persistent knowledge
-bd compact                               # Summarize old beads (save context)
-bd prime                                 # Full project state (use sparingly — heavy)
-bd dolt push                             # Sync to remote (session end)
-bd stale && bd orphans && bd lint        # Hygiene
-```
-
-**Creating issues — always include --description:**
-
-```bash
-# Bug (include: what, where, repro steps, expected vs actual)
-bd create "Login redirect fails on expired JWT" \
-  --description="Middleware returns 401 but client catches as generic error instead of routing to /login. File: src/middleware.ts:45. Repro: let token expire, click nav. Expected: /login redirect. Actual: blank 401." \
-  -t bug -p 1 --json
-
-# Feature (include: what, where to wire it, acceptance criteria)
-bd create "Add bedroom/bathroom filter" \
-  --description="Filter listings by min/max bedrooms/bathrooms. Wire to /api/listings query params. UI in SearchFilters component. Acceptance: AND logic with price filter, URL params persist on refresh." \
-  -t feature -p 2 --json
-
-# Sub-task: bd create "..." --parent bd-a3f8 -t task --json
-# Discovered: bd create "..." --deps discovered-from:<id> --json
-# Blocked: bd update <id> --status blocked --json + create blocker with --deps blocks:<id>
-# Defer/Supersede/Escalate: bd defer|supersede|human <id> --json
-```
-
-**Types:** `bug` · `feature` · `task` · `epic` · `chore`  **Priorities:** `0` critical → `4` backlog
-
----
-
-## RUFLO MEMORY & AGENTDB
-
-### HNSW Pattern Store (Ruflo Memory)
-
-```bash
-npx ruflo@latest memory search -q "keywords" --limit 5                    # BEFORE solving
-npx ruflo@latest memory store --namespace rentamls --key "area/fix" --value "what+why"  # AFTER solving
-```
-
-Aliases: `ruv-remember` · `ruv-recall` · `mem-search` · `mem-stats`
-
-### AgentDB (MCP Tools)
-
-**Search BEFORE writing fix code** — `agentdb_pattern-search` may already have a known solution.
-
-Other tools: `agentdb_pattern-store` (store novel solutions) · `agentdb_context-synthesize` (combine context) · `agentdb_semantic-route` (pick approach) · `agentdb_hierarchical-store/recall` (knowledge trees)
-
----
-
-## HOOKS & LEARNING
-
-```bash
-# Session start
-npx ruflo@latest hooks session-start --session-id rentamls --start-daemon
-
-# Before complex task
-npx ruflo@latest hooks route "<task>" --include-explanation
-
-# After task completion
-npx ruflo@latest hooks post-task --task-id "<id>" --success true --store-results true
-
-# After significant edits
-npx ruflo@latest hooks post-edit --file "<file>" --train-patterns
-
-# Session end
-npx ruflo@latest hooks session-end --export-metrics true --persist-patterns true
-
-# Diagnostics
-npx ruflo@latest hooks intelligence stats     # What's been learned?
-npx ruflo@latest hooks pretrain --depth deep  # Bootstrap (if 0 patterns)
-npx ruflo@latest hooks worker dispatch --trigger audit  # Background audit
-```
-
----
-
-## SESSION WORKFLOW
-
-**Start:**
-1. `npx ruflo@latest hooks session-start --session-id rentamls --start-daemon`
-2. `bd ready --json` + `bd list --type blocker --json`
-3. `npx ruflo@latest memory search -q "lesson" --limit 10` — review past lessons
-4. `npx ruflo@latest memory search -q "rentamls current state" --limit 5`
-
-**Before non-trivial work:** `agentdb_pattern-search` → `mem-search` → `hooks route`
-
-**During:** Claim beads → record progress in `bd comments` → `bd create` discovered work → `hooks post-edit` after significant changes
-
-**After task:** Verify it works → `bd close` with proof → `agentdb_pattern-store` if novel → `memory store` → `hooks post-task` → `aqe-gate`
-
-**End:**
-1. `bd create` remaining work with full descriptions
-2. `bd close` finished work
-3. Quality gates: `npm test && npm run build`
-4. `bd dolt push && git push` — **Work is NOT done until `git push` succeeds. YOU push.**
-5. `npx ruflo@latest hooks session-end --export-metrics true --persist-patterns true`
-
----
-
-## QUALITY & SECURITY
-
-```bash
-aqe-gate                                   # Full quality gate — required before merging
-aqe-generate                               # Generate tests for new code
-npx ruflo@latest security scan --depth full  # Security scan
-npx ruflo@latest security cve --check        # CVE check
-```
-
----
-
-## PARALLEL EXECUTION
-
-**Swarm:** Always hierarchical topology. Spawn ALL agents in ONE message. Use subagents to keep main context clean — one task per subagent for focused execution.
-
-```bash
-npx ruflo@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
-Task("Architect", "Design...", "system-architect")
-Task("Coder", "Implement...", "coder")
-Task("Tester", "Write tests...", "tester")
-```
-
-**Worktrees:** One per agent. Each gets own `$DATABASE_SCHEMA`. Test before merge. `wt-clean` after.
-
-```bash
-git worktree add .worktrees/feat-a -b feat/feat-a
-```
-
-**Agent Teams:** `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. Lead → up to 3 teammates (depth 2). Sub-agents cannot merge to main. **Requires API key sourced in `~/.bashrc`** — verify with `echo $ANTHROPIC_API_KEY`.
-
----
-
-## GITNEXUS
-
-Run blast radius before editing shared symbols: `gitnexus_impact({target: "name", direction: "upstream"})`. HIGH/CRITICAL = warn human. Pre-commit: `gitnexus_detect_changes({scope: "staged"})`. Stale index: `npx gitnexus analyze`. Never find-and-replace symbols — use `gitnexus_rename`.
-
----
-
-## STATUS HUD
-
-After action responses (not pure conversation):
-
-```
-───────────────────────────────────
-📍 Branch: <branch> · <N> files changed
-🧪 Tests: <status> · ⚡ Model: GLM-5.1 | Opus
-───────────────────────────────────
-```
-
----
-
-## ENVIRONMENT
-
-**Required:** DATABASE_URL, JWT_SECRET, OPENROUTER_API_KEY, NEXT_PUBLIC_APP_URL
-**Billing:** CONEKTA_PUBLIC_KEY, CONEKTA_PRIVATE_KEY, CONEKTA_WEBHOOK_SECRET, BILLING_ENCRYPTION_KEY
-**Optional:** RESEND_API_KEY
-
-## RAILWAY
-
-Builder: DOCKERFILE (not NIXPACKS). healthcheckTimeout ≥ 5000ms. Dockerfile: node:20-slim, CMD runs migrations via `scripts/docker-start.sh`. If healthcheck hangs: remove it. 502 = check migrations. Build fails = TypeScript errors.
-
-## COMMON FIXES
-
-Next.js 16 async params: `{ params }: { params: Promise<{ id: string }> }` then `const { id } = await params`
-
-Prisma sync: `cp prisma/schema.prisma prisma/schema.prod.prisma` after every schema change.
-
-## CURRENT WORK: SEARCH (feat/search-feature)
-
-Phase 0 in progress: ✅ middleware fix, ✅ pg_trgm migration created, ⏳ run migration + verify.
-Phases: 0→pg_trgm · 1→filters+UI · 2→tsvector · 3→cursor pagination · 4→faceting+autocomplete.
-Docs: `docs/search/PR-REQUIREMENTS.md` · `docs/search/ADR-SEARCH-TECHNOLOGY.md` · `docs/search/IMPLEMENTATION-ROADMAP.md`
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **cortex** (2095 symbols, 2780 relationships, 6 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
-
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/cortex/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/cortex/clusters` | All functional areas |
-| `gitnexus://repo/cortex/processes` | All execution flows |
-| `gitnexus://repo/cortex/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
+# CLAUDE.md — TurboFlow 4.0 Context
+
+## Identity
+This workspace runs TurboFlow 4.0 — a composed agentic development environment.
+Orchestration: Ruflo v3.5 (skills-based, not slash commands).
+Memory: Three-tier (Beads → Native Tasks → AgentDB).
+Isolation: Git worktrees per parallel agent.
+
+## Memory Protocol (MANDATORY — follow this every session)
+
+### Session Start
+1. Run `bd ready` to check project state (blockers, in-progress work, decisions)
+2. Check Native Tasks: review any persisted task lists from prior sessions
+3. AgentDB context loads automatically via Ruflo
+
+### During Work — Decision Tree
+- **Project roadmap / blockers / dependencies / decisions** → Beads (`bd create`)
+- **Current session tasks / active checklist** → Native Tasks
+- **Learned patterns / routing weights / skills** → AgentDB (automatic)
+
+### Session End
+- File any discovered work as Beads issues:
+    bd create "short title" -t bug -p 1 --description "what it is, where it lives"
+- Summarize architectural decisions:
+    bd create "short title" -t decision -p 0 --description "context and reasoning"
+- AgentDB persists automatically
+
+## Isolation Rules
+- Each parallel agent MUST operate in its own git worktree
+- Create worktree: `git worktree add .worktrees/agent-N -b agent-N/task-name`
+- Database schema per worktree: use $DATABASE_SCHEMA env var for PG Vector
+- NEVER run `--dangerously-skip-permissions` on bare metal — containers only
+
+## Agent Teams
+- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is enabled
+- Lead agent may spawn up to 3 teammates
+- Recursion limit: depth 2 (lead → sub-agents, sub-agents cannot spawn swarms)
+- If 3+ agents are blocked simultaneously → pause and alert human
+
+## Model Routing
+- Ruflo auto-selects model tier per task complexity (saves ~75% API costs)
+- Claude Opus 4.6: complex reasoning, architecture decisions
+- Claude Sonnet 4.5: standard coding, implementation
+- Claude Haiku 4.5: simple tasks, formatting, quick lookups
+
+## Stack Reference
+- Orchestration: `npx ruflo@latest` (NOT claude-flow)
+- Swarms: `npx ruflo swarm init --topology hierarchical --max-agents 8`
+- Memory: Beads (`bd`), Native Tasks, AgentDB (`npx ruflo agentdb`)
+- Codebase Graph: GitNexus (`npx gitnexus analyze`)
+- Browser: via Ruflo's bundled browser tools (59 MCP tools, element refs, snapshots)
+- Observability: via Ruflo's built-in session tracking + AttestationLog
+- Plugins: agentic-qe, code-intelligence, test-intelligence, perf-optimizer, teammate, gastown-bridge
+- Specs: OpenSpec (`npx @fission-ai/openspec`)
+
+## Ruflo Plugins
+- **Agentic QE**: 58 QE agents — TDD, coverage, security scanning, chaos engineering
+- **Code Intelligence**: code analysis, pattern detection, refactoring suggestions
+- **Test Intelligence**: test generation, gap analysis, flaky test detection
+- **Perf Optimizer**: performance profiling, bottleneck detection
+- **Teammate Plugin**: bridges Native Agent Teams ↔ Ruflo swarms (21 MCP tools)
+- **Gastown Bridge**: WASM-accelerated orchestration, Beads sync (20 MCP tools)
+- **OpenSpec**: spec-driven development (`os init`, `os`)
+
+## Codebase Intelligence (GitNexus)
+- Index repo: `npx gitnexus analyze` (run from repo root, creates knowledge graph)
+- Before editing shared code: check blast radius via GitNexus MCP tools
+- Auto-creates AGENTS.md and CLAUDE.md context files
+- One MCP server serves all indexed repos — no per-project config needed
+
+## Cost Guardrails
+- Hard session cap: $15/hr (configurable)
+- Use Haiku for simple tasks — don't burn Opus on formatting
+- Monitor: `claude-usage` or ruflo statusline
