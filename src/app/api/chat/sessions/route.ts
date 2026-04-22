@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { CreateChatSessionSchema } from '@/lib/validations/chat'
 import { validateRequest, validationErrorResponse } from '@/lib/validate'
 import { AuthRequiredError } from '@/lib/errors'
+import { logCreate, logFailure } from '@/lib/audit'
 
 // GET /api/chat/sessions - List chat sessions for current user
 export async function GET() {
@@ -55,29 +56,34 @@ export async function POST(request: NextRequest) {
   // Validate input (title is optional)
   const { data, error } = await validateRequest(CreateChatSessionSchema, request)
 
-  if (error) {
-    // Allow empty body for default title
-    const session = await db.chatSession.create({
-      data: {
-        userId,
-        title: 'New Conversation',
-      },
-    })
-
-    return NextResponse.json({ data: session }, { status: 201 })
-  }
-
   try {
-    const session = await db.chatSession.create({
-      data: {
-        userId,
-        title: data.title || 'New Conversation',
-      },
+    let session
+    if (error) {
+      // Allow empty body for default title
+      session = await db.chatSession.create({
+        data: {
+          userId,
+          title: 'New Conversation',
+        },
+      })
+    } else {
+      session = await db.chatSession.create({
+        data: {
+          userId,
+          title: data.title || 'New Conversation',
+        },
+      })
+    }
+
+    // Audit log the creation
+    await logCreate(userId, 'ChatSession', session.id, {
+      title: session.title,
     })
 
     return NextResponse.json({ data: session }, { status: 201 })
   } catch (error) {
     console.error('Chat session create error:', error)
+    await logFailure(userId, 'create', 'ChatSession', null, String(error))
     throw error
   }
 }

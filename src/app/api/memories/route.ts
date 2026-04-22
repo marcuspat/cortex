@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
+import { withRateLimit } from '@/lib/rate-limit'
+import { RateLimitType } from '@/lib/rate-limit'
 
-export async function GET(request: NextRequest) {
+async function getMemoriesHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -79,3 +81,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+// Wrap with rate limiting (read-heavy endpoints have higher limits)
+export const GET = withRateLimit(getMemoriesHandler, RateLimitType.READ)

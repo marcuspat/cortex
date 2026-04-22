@@ -211,3 +211,27 @@ model Setting {
   @@unique([key, userId])
   @@index([userId])
 }
+
+// ===========================================
+// AUDIT LOGGING
+// ===========================================
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String
+  action       String   // create, update, delete, sync, login, logout, export
+  resourceType String   // Connector, Memory, InsightCard, ChatSession, Setting, AgentTrace
+  resourceId   String?
+  changes      String   @default("{}") // JSON before/after values or created data
+  ipAddress    String?
+  userAgent    String?
+  success      Boolean  @default(true)
+  errorMessage String?
+  metadata     String   @default("{}") // JSON additional context
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+}

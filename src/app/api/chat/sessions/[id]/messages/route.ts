@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { CreateChatMessageSchema } from '@/lib/validations/chat'
 import { validateRequest, validationErrorResponse } from '@/lib/validate'
 import { NotFoundError, AuthRequiredError, generateRequestId } from '@/lib/errors'
+import { logCreate, logFailure } from '@/lib/audit'
 
 // POST /api/chat/sessions/[id]/messages - Send a message in a chat session
 export async function POST(
@@ -91,6 +92,13 @@ export async function POST(
       },
     })
 
+    // Audit log user message
+    await logCreate(userId, 'ChatMessage', userMessage.id, {
+      sessionId: id,
+      role: userMessage.role,
+      contentLength: userMessage.content.length,
+    })
+
     // Generate assistant response based on found memories
     let assistantContent: string
 
@@ -119,6 +127,14 @@ export async function POST(
       },
     })
 
+    // Audit log assistant message
+    await logCreate(userId, 'ChatMessage', assistantMessage.id, {
+      sessionId: id,
+      role: assistantMessage.role,
+      contentLength: assistantMessage.content.length,
+      citedMemories: memoryIds.length,
+    })
+
     const response = NextResponse.json({
       data: {
         userMessage,
@@ -133,6 +149,8 @@ export async function POST(
     return response
   } catch (error) {
     console.error('Chat message create error:', error)
+    const { id } = await params
+    await logFailure(userId, 'create', 'ChatMessage', id, String(error))
     throw error
   }
 }

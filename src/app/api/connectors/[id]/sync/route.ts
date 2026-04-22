@@ -1,35 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
+import { withRateLimit } from '@/lib/rate-limit'
+import { RateLimitType } from '@/lib/rate-limit'
+import { withErrorHandler } from '@/lib/errors'
+import { AuthRequiredError, NotFoundError } from '@/lib/errors'
+import { logSync, logFailure } from '@/lib/audit'
 
-export async function POST(
-  _request: NextRequest,
+async function syncConnectorHandler(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const userId = await getCurrentUserId()
 
   if (!userId) {
-    return NextResponse.json(
-      { error: 'Authentication required', code: 'AUTH_REQUIRED' },
-      { status: 401 }
-    )
+    throw new AuthRequiredError('Authentication required for connector sync')
+  }
+
+  const { id } = await params
+  const startTime = Date.now()
+
+  // Verify connector belongs to user
+  const connector = await db.connector.findFirst({
+    where: { id, userId },
+  })
+
+  if (!connector) {
+    throw new NotFoundError('Connector')
   }
 
   try {
-    const { id } = await params
-
-    // Verify connector belongs to user
-    const connector = await db.connector.findFirst({
-      where: { id, userId },
-    })
-
-    if (!connector) {
-      return NextResponse.json(
-        { error: 'Connector not found', code: 'NOT_FOUND' },
-        { status: 404 }
-      )
-    }
-
     // Simulate a sync: update lastSync to now and bump itemCount
     const memoryCount = await db.memory.count({
       where: { connectorId: id, userId },
@@ -76,6 +76,15 @@ export async function POST(
       })
     }
 
+    const duration = Date.now() - startTime
+
+    // Audit log the sync
+    await logSync(userId, 'Connector', id, {
+      itemsProcessed: newItems,
+      itemsAdded: newItems,
+      duration,
+    })
+
     return NextResponse.json({
       data: {
         ...updated,
@@ -83,10 +92,17 @@ export async function POST(
       },
     })
   } catch (error) {
-    console.error('Connector sync error:', error)
-    return NextResponse.json(
-      { error: 'Failed to sync connector', code: 'INTERNAL_ERROR' },
-      { status: 500 }
-    )
+    // Audit log the sync failure
+    await logFailure(userId, 'sync', 'Connector', id, String(error))
+    throw error
   }
 }
+
+// Wrap with rate limiting (sync is expensive) and error handling
+export const POST = withRateLimit(
+  withErrorHandler(syncConnectorHandler, {
+    endpoint: '/api/connectors/[id]/sync',
+    method: 'POST',
+  }),
+  RateLimitType.EXPENSIVE
+)

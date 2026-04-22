@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { generateRequestId } from '@/lib/errors'
+import { withRateLimit } from '@/lib/rate-limit'
+import { RateLimitType } from '@/lib/rate-limit'
 
-export async function GET() {
+async function healthCheckHandler() {
   const requestId = generateRequestId()
 
   try {
@@ -35,3 +37,6 @@ export async function GET() {
     return errorResponse
   }
 }
+
+// Wrap with rate limiting (internal endpoints have high limits)
+export const GET = withRateLimit(healthCheckHandler, RateLimitType.INTERNAL)

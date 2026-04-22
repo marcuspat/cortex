@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { UpdateInsightSchema } from '@/lib/validations/insight'
 import { validateRequest, validationErrorResponse } from '@/lib/validate'
 import { NotFoundError, AuthRequiredError } from '@/lib/errors'
+import { logUpdate, logFailure } from '@/lib/audit'
 
 // PATCH /api/insights/[id] - Update insight (feedback, status)
 export async function PATCH(
@@ -35,6 +36,13 @@ export async function PATCH(
       throw new NotFoundError('Insight card')
     }
 
+    // Capture before state
+    const beforeData = {
+      status: existing.status,
+      feedback: existing.feedback,
+      priority: existing.priority,
+    }
+
     // Update only provided fields
     const updateData: any = {}
     if (data.status !== undefined) {
@@ -52,9 +60,18 @@ export async function PATCH(
       data: updateData,
     })
 
+    // Audit log the update
+    await logUpdate(userId, 'InsightCard', id, beforeData, {
+      status: updated.status,
+      feedback: updated.feedback,
+      priority: updated.priority,
+    })
+
     return NextResponse.json({ data: updated })
   } catch (error) {
     console.error('Insight update error:', error)
+    const { id } = await params
+    await logFailure(userId, 'update', 'InsightCard', id, String(error))
     throw error
   }
 }

@@ -6,6 +6,7 @@ import {
   UpdateConnectorSchema,
 } from '@/lib/validations/connector'
 import { validateRequest, validationErrorResponse } from '@/lib/validate'
+import { logCreate, logFailure, sanitizeData } from '@/lib/audit'
 
 // GET /api/connectors - List all connectors for current user
 export async function GET() {
@@ -82,6 +83,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Audit log the creation
+    await logCreate(userId, 'Connector', connector.id, sanitizeData({
+      type: connector.type,
+      name: connector.name,
+      status: connector.status,
+    }))
+
     return NextResponse.json(
       {
         data: connector,
@@ -93,6 +101,7 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error('Failed to create connector:', error)
+    await logFailure(userId, 'create', 'Connector', null, String(error))
     return NextResponse.json(
       {
         error: 'Failed to create connector',

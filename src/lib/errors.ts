@@ -1,4 +1,16 @@
 import { z } from 'zod'
+import { NextResponse } from 'next/server'
+
+// ===========================================
+// UTILITY FUNCTIONS
+// ===========================================
+
+/**
+ * Generate a unique request ID for tracking
+ */
+export function generateRequestId(): string {
+  return crypto.randomUUID()
+}
 
 // ===========================================
 // ERROR HANDLING

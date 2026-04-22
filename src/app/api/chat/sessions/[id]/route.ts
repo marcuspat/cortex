@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { NotFoundError, AuthRequiredError } from '@/lib/errors'
+import { logDelete, logFailure } from '@/lib/audit'
 
 // GET /api/chat/sessions/[id] - Get a specific chat session with messages
 export async function GET(
@@ -54,19 +55,36 @@ export async function DELETE(
     // Verify session belongs to user
     const existing = await db.chatSession.findFirst({
       where: { id, userId },
+      include: {
+        _count: {
+          select: { messages: true },
+        },
+      },
     })
 
     if (!existing) {
       throw new NotFoundError('Chat session')
     }
 
+    // Capture data before deletion
+    const deletedData = {
+      title: existing.title,
+      messageCount: existing._count.messages,
+      createdAt: existing.createdAt,
+    }
+
     await db.chatSession.delete({ where: { id } })
+
+    // Audit log the deletion
+    await logDelete(userId, 'ChatSession', id, deletedData)
 
     return NextResponse.json({
       data: { success: true },
     })
   } catch (error) {
     console.error('Chat session delete error:', error)
+    const { id } = await params
+    await logFailure(userId, 'delete', 'ChatSession', id, String(error))
     throw error
   }
 }
