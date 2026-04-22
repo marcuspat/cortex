@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { env } from './env'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -7,19 +8,32 @@ const globalForPrisma = globalThis as unknown as {
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === 'development'
+    log: env.NODE_ENV === 'development'
       ? ['query', 'error', 'warn']
       : ['error', 'warn'],
   })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+if (env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = db
+}
 
-// Validate database connection on startup in production
-if (process.env.NODE_ENV === 'production') {
+// Validate database connection on startup
+if (env.NODE_ENV === 'production') {
   db.$connect()
-    .then(() => console.log('✅ Database connected successfully'))
+    .then(() => {
+      console.log('✅ Database connected successfully')
+    })
     .catch((error) => {
-      console.error('❌ Database connection failed:', error)
+      console.error('❌ Database connection failed:', error.message)
+      console.error('Check your DATABASE_URL environment variable')
+      console.error('Current DATABASE_URL:', env.DATABASE_URL.replace(/:[^:@]+@/, ':****@'))
       process.exit(1)
     })
+}
+
+// Graceful shutdown
+if (typeof process !== 'undefined') {
+  process.on('beforeExit', async () => {
+    await db.$disconnect()
+  })
 }
