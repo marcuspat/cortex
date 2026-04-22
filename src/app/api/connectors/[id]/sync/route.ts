@@ -1,24 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+      { status: 401 }
+    )
+  }
+
   try {
     const { id } = await params
-    const connector = await db.connector.findUnique({ where: { id } })
+
+    // Verify connector belongs to user
+    const connector = await db.connector.findFirst({
+      where: { id, userId },
+    })
 
     if (!connector) {
       return NextResponse.json(
-        { error: 'Connector not found' },
+        { error: 'Connector not found', code: 'NOT_FOUND' },
         { status: 404 }
       )
     }
 
     // Simulate a sync: update lastSync to now and bump itemCount
     const memoryCount = await db.memory.count({
-      where: { connectorId: id },
+      where: { connectorId: id, userId },
     })
 
     // Simulate new items being added during sync
@@ -48,6 +62,7 @@ export async function POST(
 
     const sourceType = sourceTypeMap[connector.type] || 'document'
 
+    // Create memories with userId
     for (let i = 0; i < newItems; i++) {
       await db.memory.create({
         data: {
@@ -55,19 +70,22 @@ export async function POST(
           title: `${connector.name} - Item ${memoryCount + i + 1}`,
           sourceType,
           connectorId: id,
+          userId,
           sourceTimestamp: new Date(),
         },
       })
     }
 
     return NextResponse.json({
-      ...updated,
-      syncedItems: newItems,
+      data: {
+        ...updated,
+        syncedItems: newItems,
+      },
     })
   } catch (error) {
     console.error('Connector sync error:', error)
     return NextResponse.json(
-      { error: 'Failed to sync connector' },
+      { error: 'Failed to sync connector', code: 'INTERNAL_ERROR' },
       { status: 500 }
     )
   }

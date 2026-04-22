@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
+import {
+  CreateConnectorSchema,
+  UpdateConnectorSchema,
+} from '@/lib/validations/connector'
+import { validateRequest, validationErrorResponse } from '@/lib/validate'
 
 // GET /api/connectors - List all connectors for current user
 export async function GET() {
@@ -20,6 +25,11 @@ export async function GET() {
     const connectors = await db.connector.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: { memories: true },
+        },
+      },
     })
 
     return NextResponse.json({
@@ -54,27 +64,20 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Validate input with Zod
+  const { data, error } = await validateRequest(CreateConnectorSchema, request)
+
+  if (error || !data) {
+    return validationErrorResponse(error)
+  }
+
   try {
-    const body = await request.json()
-
-    // Basic validation (will be replaced with Zod in Task 1.2)
-    const { type, name, config } = body
-
-    if (!type || !name) {
-      return NextResponse.json(
-        {
-          error: 'Missing required fields: type and name are required',
-          code: 'VALIDATION_ERROR',
-        },
-        { status: 400 }
-      )
-    }
-
     const connector = await db.connector.create({
       data: {
-        type,
-        name,
-        config: JSON.stringify(config || {}),
+        type: data.type,
+        name: data.name,
+        config: JSON.stringify(data.config || {}),
+        status: data.status || 'disconnected',
         userId,
       },
     })
