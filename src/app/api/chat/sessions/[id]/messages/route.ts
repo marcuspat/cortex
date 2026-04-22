@@ -3,24 +3,26 @@ import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { CreateChatMessageSchema } from '@/lib/validations/chat'
 import { validateRequest, validationErrorResponse } from '@/lib/validate'
-import { NotFoundError, AuthRequiredError } from '@/lib/errors'
+import { NotFoundError, AuthRequiredError, generateRequestId } from '@/lib/errors'
 
 // POST /api/chat/sessions/[id]/messages - Send a message in a chat session
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const requestId = generateRequestId()
+  const startTime = Date.now()
+
   const userId = await getCurrentUserId()
 
   if (!userId) {
     throw new AuthRequiredError()
   }
 
-  // Validate input
   const { data, error } = await validateRequest(CreateChatMessageSchema, request)
 
   if (error || !data) {
-    return validationErrorResponse(error)
+    return validationErrorResponse(error, requestId)
   }
 
   try {
@@ -117,13 +119,18 @@ export async function POST(
       },
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       data: {
         userMessage,
         assistantMessage,
         relevantMemories: memoryIds,
       },
     })
+
+    response.headers.set('x-request-id', requestId)
+    response.headers.set('x-response-time', `${Date.now() - startTime}ms`)
+
+    return response
   } catch (error) {
     console.error('Chat message create error:', error)
     throw error

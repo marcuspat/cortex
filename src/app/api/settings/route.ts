@@ -3,9 +3,12 @@ import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { UpsertSettingsSchema } from '@/lib/validations/settings'
 import { validateRequest, validationErrorResponse } from '@/lib/validate'
-import { AuthRequiredError } from '@/lib/errors'
+import { AuthRequiredError, generateRequestId } from '@/lib/errors'
 
 export async function GET() {
+  const requestId = generateRequestId()
+  const startTime = Date.now()
+
   const userId = await getCurrentUserId()
 
   if (!userId) {
@@ -21,9 +24,14 @@ export async function GET() {
       settingsMap[setting.key] = setting.value
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       data: settingsMap,
     })
+
+    response.headers.set('x-request-id', requestId)
+    response.headers.set('x-response-time', `${Date.now() - startTime}ms`)
+
+    return response
   } catch (error) {
     console.error('Settings get error:', error)
     throw error
@@ -31,39 +39,35 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const requestId = generateRequestId()
+  const startTime = Date.now()
+
   const userId = await getCurrentUserId()
 
   if (!userId) {
     throw new AuthRequiredError()
   }
 
+  const { data, error } = await validateRequest(UpsertSettingsSchema, request)
+
+  if (error || !data) {
+    return validationErrorResponse(error, requestId)
+  }
+
   try {
-    const body = await request.json()
-
-    // Validate settings (basic check, will use Zod in production)
-    if (typeof body !== 'object' || body === null) {
-      return NextResponse.json(
-        {
-          error: 'Settings must be an object',
-          code: 'VALIDATION_ERROR',
-        },
-        { status: 400 }
-      )
-    }
-
-    const entries = Object.entries(body) as [string, any][]
+    const entries = Object.entries(data.settings)
 
     if (!entries.length) {
       return NextResponse.json(
         {
           error: 'No settings provided',
           code: 'VALIDATION_ERROR',
+          requestId,
         },
         { status: 400 }
       )
     }
 
-    // Upsert all settings with userId
     const results = await Promise.all(
       entries.map(([key, value]) =>
         db.setting.upsert({
@@ -79,9 +83,14 @@ export async function PUT(request: NextRequest) {
       settingsMap[result.key] = result.value
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       data: settingsMap,
     })
+
+    response.headers.set('x-request-id', requestId)
+    response.headers.set('x-response-time', `${Date.now() - startTime}ms`)
+
+    return response
   } catch (error) {
     console.error('Settings update error:', error)
     throw error

@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
+import { AuthRequiredError, generateRequestId } from '@/lib/errors'
 
 export async function GET(request: NextRequest) {
+  const requestId = generateRequestId()
+  const startTime = Date.now()
+
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    throw new AuthRequiredError()
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const agentType = searchParams.get('agentType')
@@ -10,7 +21,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const offset = parseInt(searchParams.get('offset') || '0', 10)
 
-    const where: Prisma.AgentTraceWhereInput = {}
+    const where: Prisma.AgentTraceWhereInput = {
+      userId,
+    }
 
     if (agentType) {
       where.agentType = agentType
@@ -30,7 +43,7 @@ export async function GET(request: NextRequest) {
       db.agentTrace.count({ where }),
     ])
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       data: traces,
       pagination: {
         total,
@@ -38,11 +51,13 @@ export async function GET(request: NextRequest) {
         offset,
       },
     })
+
+    response.headers.set('x-request-id', requestId)
+    response.headers.set('x-response-time', `${Date.now() - startTime}ms`)
+
+    return response
   } catch (error) {
     console.error('Agent traces list error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch agent traces' },
-      { status: 500 }
-    )
+    throw error
   }
 }

@@ -3,9 +3,12 @@ import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { AGENT_INFO } from '@/lib/constants'
 import type { AgentStatus, AgentType } from '@/lib/types'
-import { AuthRequiredError } from '@/lib/errors'
+import { AuthRequiredError, generateRequestId } from '@/lib/errors'
 
 export async function GET() {
+  const requestId = generateRequestId()
+  const startTime = Date.now()
+
   const userId = await getCurrentUserId()
 
   if (!userId) {
@@ -18,7 +21,6 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     })
 
-    // Build a lookup for quick access
     const tracesByAgent = new Map<AgentType, typeof allTraces>()
     for (const agent of AGENT_INFO) {
       tracesByAgent.set(agent.type, [])
@@ -43,7 +45,6 @@ export async function GET() {
           ? Math.round(traces.reduce((sum, t) => sum + t.durationMs, 0) / totalRuns)
           : 0
 
-      // Determine current agent status
       let status: AgentStatus['status'] = 'idle'
       if (runningRuns > 0) {
         status = 'running'
@@ -67,9 +68,14 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       data: agentStatuses,
     })
+
+    response.headers.set('x-request-id', requestId)
+    response.headers.set('x-response-time', `${Date.now() - startTime}ms`)
+
+    return response
   } catch (error) {
     console.error('Agent status error:', error)
     throw error
