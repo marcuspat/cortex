@@ -28,6 +28,7 @@ model User {
   chatSessions  ChatSession[]
   insightCards  InsightCard[]
   settings      Setting[]
+  agentTraces   AgentTrace[]
 }
 
 model Account {
@@ -165,7 +166,12 @@ model AgentTrace {
   error       String?
   durationMs  Int      @default(0)
   steps       String   @default("[]") // JSON array of trace steps
+  userId      String
   createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Entity {
@@ -193,7 +199,15 @@ model MemoryEntity {
 }
 
 model Setting {
-  id    String @id @default(cuid())
-  key   String @unique
-  value String @default("")
+  id        String   @id @default(cuid())
+  key       String
+  value     String   @default("")
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([key, userId])
+  @@index([userId])
 }
