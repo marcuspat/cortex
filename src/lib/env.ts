@@ -103,6 +103,9 @@ export const env = envSchema.parse({
 export type Env = z.infer<typeof envSchema>
 
 // Validate on startup (fails fast if missing required variables)
+// Skip validation during build time to prevent build failures
+const isBuildTime = process.env.NEXT_BUILD === '1' || process.env.NODE_ENV === undefined
+
 try {
   envSchema.parse({
     ...process.env,
@@ -110,36 +113,49 @@ try {
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || crypto.randomUUID() + crypto.randomUUID(),
     NEXTAUTH_URL: constructNextAuthUrl(),
   })
-  console.log('✅ Environment variables validated successfully')
+  if (!isBuildTime) {
+    console.log('✅ Environment variables validated successfully')
+  }
 } catch (error) {
   if (error instanceof z.ZodError) {
-    console.error('❌ Environment validation failed:')
-    console.error('\nMissing or invalid environment variables:\n')
+    // During build time, just log warnings instead of failing
+    if (isBuildTime) {
+      console.warn('⚠️ Environment validation warning during build:')
+      error.errors.forEach((err) => {
+        console.warn(`  - ${err.path.join('.')}: ${err.message}`)
+      })
+      console.warn('Continuing with build...\n')
+    } else {
+      console.error('❌ Environment validation failed:')
+      console.error('\nMissing or invalid environment variables:\n')
 
-    error.errors.forEach((err) => {
-      const path = err.path.join('.')
-      console.error(`  - ${path}`)
-      console.error(`    ${err.message}`)
+      error.errors.forEach((err) => {
+        const path = err.path.join('.')
+        console.error(`  - ${path}`)
+        console.error(`    ${err.message}`)
 
-      if (process.env.NODE_ENV === 'production') {
-        console.error(`    This variable is REQUIRED in production`)
+        if (process.env.NODE_ENV === 'production') {
+          console.error(`    This variable is REQUIRED in production`)
+        }
+      })
+
+      console.error('\nPlease check your .env file or Railway environment variables.')
+      console.error('See .env.example for required variables.\n')
+
+      // Only exit on critical errors (DATABASE_URL) in production
+      const hasCriticalErrors = error.errors.some(err =>
+        err.path.includes('DATABASE_URL')
+      )
+
+      if (hasCriticalErrors && process.env.NODE_ENV === 'production') {
+        process.exit(1)
       }
-    })
-
-    console.error('\nPlease check your .env file or Railway environment variables.')
-    console.error('See .env.example for required variables.\n')
-
-    // Only exit on critical errors (DATABASE_URL) in production
-    const hasCriticalErrors = error.errors.some(err =>
-      err.path.includes('DATABASE_URL')
-    )
-
-    if (hasCriticalErrors && process.env.NODE_ENV === 'production') {
-      process.exit(1)
     }
   } else {
     console.error('Unexpected error validating environment:', error)
-    process.exit(1)
+    if (!isBuildTime) {
+      process.exit(1)
+    }
   }
 }
 
