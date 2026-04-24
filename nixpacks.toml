@@ -5,7 +5,6 @@ nixPkgs = ["nodejs-20"]
 cmds = ["npm ci"]
 
 [phases.build]
-env = ["NEXT_BUILD=true", "NODE_ENV=production"]
 cmds = [
   "npx prisma generate",
   "npm run build"
