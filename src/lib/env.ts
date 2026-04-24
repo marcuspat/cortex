@@ -51,7 +51,7 @@ const envSchema = z.object({
   // ===========================================
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
-    .default('development')
+    .default('production')
     .describe('Application environment'),
 
   // ===========================================
@@ -96,6 +96,13 @@ export const env = envSchema.parse({
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || crypto.randomUUID() + crypto.randomUUID(),
   NEXTAUTH_URL: constructNextAuthUrl(),
 })
+
+// Log important environment info for debugging
+console.log('🔧 Environment configuration:')
+console.log(`  NODE_ENV: ${env.NODE_ENV}`)
+console.log(`  NEXTAUTH_URL: ${env.NEXTAUTH_URL}`)
+console.log(`  DATABASE_URL: ${env.DATABASE_URL ? '✅ Set' : '❌ Missing'}`)
+console.log(`  NEXTAUTH_SECRET: ${env.NEXTAUTH_SECRET ? '✅ Set' : '❌ Missing'}`)
 
 /**
  * Type for environment variables
@@ -153,8 +160,9 @@ try {
     }
   } else {
     console.error('Unexpected error validating environment:', error)
+    // Don't exit - let the app try to run
     if (!isBuildTime) {
-      process.exit(1)
+      console.warn('⚠️ Continuing despite validation error...')
     }
   }
 }
