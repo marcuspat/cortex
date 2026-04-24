@@ -5,6 +5,7 @@ nixPkgs = ["nodejs-20"]
 cmds = ["npm ci"]
 
 [phases.build]
+env = ["DATABASE_URL"]
 cmds = [
   "npx prisma generate",
   "npx prisma db push --skip-generate --accept-data-loss",

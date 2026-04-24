@@ -15,8 +15,7 @@ const envSchema = z.object({
   // ===========================================
   DATABASE_URL: z
     .string()
-    .url()
-    .describe('PostgreSQL connection string'),
+    .describe('Database connection string (PostgreSQL or SQLite for local dev)'),
 
   // ===========================================
   // NEXTAUTH.JS (Optional - auto-generated if not provided)
