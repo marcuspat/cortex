@@ -11,19 +11,36 @@ const isBuildTime = process.env.NEXT_BUILD === '1' ||
                     !process.env.DATABASE_URL?.includes('railway')
 
 if (isBuildTime) {
-  console.log('⚠️ Build mode detected - Database connection will be skipped')
+  console.log('⚠️ Build mode detected - Using mock Prisma client')
 }
 
+// During build, create a mock client that throws on any operation
 export const db =
   globalForPrisma.prisma ??
-  new PrismaClient({
+  (isBuildTime ? createMockPrismaClient() : new PrismaClient({
     log: env.NODE_ENV === 'development'
       ? ['query', 'error', 'warn']
       : ['error', 'warn'],
-  })
+  }))
 
 if (env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = db
+}
+
+// Create a mock Prisma client for build time
+function createMockPrismaClient(): any {
+  return new Proxy({} as PrismaClient, {
+    get(target, prop) {
+      // Return mock functions for all Prisma operations
+      if (prop === '$connect' || prop === '$disconnect') {
+        return () => Promise.resolve()
+      }
+      // For any other operation (findMany, create, etc.), return a function that throws
+      return () => {
+        throw new Error(`Database operation "${String(prop)}" not available during build time`)
+      }
+    },
+  })
 }
 
 // Validate database connection on startup
@@ -39,8 +56,6 @@ if (!isBuildTime) {
       console.error('Current DATABASE_URL:', env.DATABASE_URL.replace(/:[^:@]+@/, ':****@'))
       process.exit(1)
     })
-} else {
-  console.log('⚠️ Skipping database connection during build time')
 }
 
 // Graceful shutdown
