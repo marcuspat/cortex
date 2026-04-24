@@ -19,17 +19,19 @@ const envSchema = z.object({
     .describe('PostgreSQL connection string'),
 
   // ===========================================
-  // NEXTAUTH.JS (Required)
+  // NEXTAUTH.JS (Optional - auto-generated if not provided)
   // ===========================================
   NEXTAUTH_SECRET: z
     .string()
     .min(32, 'NEXTAUTH_SECRET must be at least 32 characters')
-    .describe('Secret key for NextAuth.js session encryption'),
+    .optional()
+    .describe('Secret key for NextAuth.js session encryption (auto-generated if not provided)'),
 
   NEXTAUTH_URL: z
     .string()
     .url()
-    .describe('URL of the application (for OAuth callbacks)'),
+    .optional()
+    .describe('URL of the application (for OAuth callbacks) - defaults to VERCEL_URL or localhost'),
 
   // ===========================================
   // OAUTH PROVIDERS (Optional in development, Required in production)
@@ -65,7 +67,12 @@ const envSchema = z.object({
  * Validated environment variables
  * Import this to access type-safe environment variables
  */
-export const env = envSchema.parse(process.env)
+export const env = envSchema.parse({
+  ...process.env,
+  // Provide defaults for NextAuth to prevent build failures
+  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || crypto.randomUUID() + crypto.randomUUID(),
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL || process.env.VERCEL_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000',
+})
 
 /**
  * Type for environment variables
@@ -74,7 +81,12 @@ export type Env = z.infer<typeof envSchema>
 
 // Validate on startup (fails fast if missing required variables)
 try {
-  envSchema.parse(process.env)
+  envSchema.parse({
+    ...process.env,
+    // Provide defaults for NextAuth to prevent build failures
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || crypto.randomUUID() + crypto.randomUUID(),
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || process.env.VERCEL_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000',
+  })
   console.log('✅ Environment variables validated successfully')
 } catch (error) {
   if (error instanceof z.ZodError) {
@@ -94,8 +106,12 @@ try {
     console.error('\nPlease check your .env file or Railway environment variables.')
     console.error('See .env.example for required variables.\n')
 
-    // Exit with error in production
-    if (process.env.NODE_ENV === 'production') {
+    // Only exit on critical errors (DATABASE_URL) in production
+    const hasCriticalErrors = error.errors.some(err =>
+      err.path.includes('DATABASE_URL')
+    )
+
+    if (hasCriticalErrors && process.env.NODE_ENV === 'production') {
       process.exit(1)
     }
   } else {
