@@ -28,7 +28,6 @@ const envSchema = z.object({
 
   NEXTAUTH_URL: z
     .string()
-    .url()
     .optional()
     .describe('URL of the application (for OAuth callbacks) - defaults to VERCEL_URL or localhost'),
 
@@ -66,11 +65,36 @@ const envSchema = z.object({
  * Validated environment variables
  * Import this to access type-safe environment variables
  */
+// Helper to construct valid NEXTAUTH_URL from various sources
+function constructNextAuthUrl(): string {
+  // If explicitly provided, use it
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL
+  }
+
+  // Try Vercel
+  if (process.env.VERCEL_URL) {
+    return process.env.VERCEL_URL.startsWith('http')
+      ? process.env.VERCEL_URL
+      : `https://${process.env.VERCEL_URL}`
+  }
+
+  // Try Railway
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    return process.env.RAILWAY_PUBLIC_DOMAIN.startsWith('http')
+      ? process.env.RAILWAY_PUBLIC_DOMAIN
+      : `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  }
+
+  // Default to localhost
+  return 'http://localhost:3000'
+}
+
 export const env = envSchema.parse({
   ...process.env,
   // Provide defaults for NextAuth to prevent build failures
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || crypto.randomUUID() + crypto.randomUUID(),
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL || process.env.VERCEL_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000',
+  NEXTAUTH_URL: constructNextAuthUrl(),
 })
 
 /**
@@ -84,7 +108,7 @@ try {
     ...process.env,
     // Provide defaults for NextAuth to prevent build failures
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || crypto.randomUUID() + crypto.randomUUID(),
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL || process.env.VERCEL_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000',
+    NEXTAUTH_URL: constructNextAuthUrl(),
   })
   console.log('✅ Environment variables validated successfully')
 } catch (error) {
