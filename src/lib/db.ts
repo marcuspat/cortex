@@ -18,7 +18,11 @@ if (env.NODE_ENV !== 'production') {
 }
 
 // Validate database connection on startup
-if (env.NODE_ENV === 'production') {
+// Skip validation during build time (NEXT_BUILD=1) and in development
+const isBuildTime = process.env.NEXT_BUILD === '1'
+const isRuntime = !isBuildTime
+
+if (isRuntime && env.NODE_ENV === 'production') {
   db.$connect()
     .then(() => {
       console.log('✅ Database connected successfully')
@@ -29,6 +33,8 @@ if (env.NODE_ENV === 'production') {
       console.error('Current DATABASE_URL:', env.DATABASE_URL.replace(/:[^:@]+@/, ':****@'))
       process.exit(1)
     })
+} else if (isBuildTime) {
+  console.log('⚠️ Build mode: Skipping database connection validation')
 }
 
 // Graceful shutdown

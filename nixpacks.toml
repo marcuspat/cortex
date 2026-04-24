@@ -5,15 +5,13 @@ nixPkgs = ["nodejs-20"]
 cmds = ["npm ci"]
 
 [phases.build]
-env = ["DATABASE_URL"]
 cmds = [
   "npx prisma generate",
-  "npx prisma db push --skip-generate --accept-data-loss",
   "npm run build"
 ]
 
 [phases.start]
-cmd = "node .next/standalone/server.js"
+cmd = "npx prisma db push --skip-generate --accept-data-loss && node .next/standalone/server.js"
 
 [deploy]
 healthcheckPath = "/api/health"
