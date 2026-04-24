@@ -5,26 +5,30 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Detect if we're in build time - check explicit flag first
-const isBuildTime = process.env.NEXT_BUILD === 'true' ||
-                    process.env.NEXT_BUILD === '1' ||
-                    process.env.NODE_ENV === undefined
+// Lazy-load Prisma client - only instantiate when actually used
+// This prevents database connection attempts during build time
+function getPrismaClient(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    // Check if we're in build time before creating client
+    const isBuildTime = process.env.NEXT_BUILD === 'true' ||
+                        process.env.NEXT_BUILD === '1' ||
+                        process.env.NODE_ENV === undefined
 
-if (isBuildTime) {
-  console.log('⚠️ Build mode detected - Using mock Prisma client')
-}
+    if (isBuildTime) {
+      console.log('⚠️ Build mode: Skipping Prisma client instantiation')
+      // Return a mock client during build
+      globalForPrisma.prisma = createMockPrismaClient()
+    } else {
+      // Only create real Prisma client at runtime
+      globalForPrisma.prisma = new PrismaClient({
+        log: env.NODE_ENV === 'development'
+          ? ['query', 'error', 'warn']
+          : ['error', 'warn'],
+      })
+    }
+  }
 
-// During build, create a mock client that doesn't connect to database
-export const db =
-  globalForPrisma.prisma ??
-  (isBuildTime ? createMockPrismaClient() : new PrismaClient({
-    log: env.NODE_ENV === 'development'
-      ? ['query', 'error', 'warn']
-      : ['error', 'warn'],
-  }))
-
-if (env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db
+  return globalForPrisma.prisma
 }
 
 // Create a mock Prisma client for build time
@@ -35,7 +39,7 @@ function createMockPrismaClient(): any {
       if (prop === '$connect' || prop === '$disconnect') {
         return () => Promise.resolve()
       }
-      // For any other operation (findMany, create, etc.), return a function that throws
+      // For any other operation, return a function that throws
       return () => {
         throw new Error(`Database operation "${String(prop)}" not available during build time`)
       }
@@ -43,24 +47,22 @@ function createMockPrismaClient(): any {
   })
 }
 
-// Validate database connection on startup
-// During build, database might not be available - silently skip connection
-if (!isBuildTime) {
-  db.$connect()
-    .then(() => {
-      console.log('✅ Database connected successfully')
-    })
-    .catch((error) => {
-      console.error('❌ Database connection failed:', error.message)
-      console.error('Check your DATABASE_URL environment variable')
-      console.error('Current DATABASE_URL:', env.DATABASE_URL.replace(/:[^:@]+@/, ':****@'))
-      process.exit(1)
-    })
-}
+// Export a getter that lazily initializes the client
+export const db = new Proxy({} as PrismaClient, {
+  get(target, prop) {
+    const client = getPrismaClient()
+    return client[prop as keyof PrismaClient]
+  },
+})
 
 // Graceful shutdown
 if (typeof process !== 'undefined') {
   process.on('beforeExit', async () => {
-    await db.$disconnect()
+    try {
+      const client = getPrismaClient()
+      await client.$disconnect()
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
   })
 }
