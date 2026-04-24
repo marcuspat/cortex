@@ -11,9 +11,9 @@ cmds = [
 ]
 
 [phases.start]
-cmd = "npx prisma db push --skip-generate --accept-data-loss && node .next/standalone/server.js"
+cmd = "node .next/standalone/server.js"
 
 [deploy]
 healthcheckPath = "/api/health"
-healthcheckTimeout = 300
+healthcheckTimeout = 600
 restartPolicyType = "on-failure"
