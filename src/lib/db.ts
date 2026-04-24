@@ -5,16 +5,16 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Detect if we're in build time - check multiple indicators
-const isBuildTime = process.env.NEXT_BUILD === '1' ||
-                    process.env.NODE_ENV === undefined ||
-                    !process.env.DATABASE_URL?.includes('railway')
+// Detect if we're in build time - check explicit flag first
+const isBuildTime = process.env.NEXT_BUILD === 'true' ||
+                    process.env.NEXT_BUILD === '1' ||
+                    process.env.NODE_ENV === undefined
 
 if (isBuildTime) {
   console.log('⚠️ Build mode detected - Using mock Prisma client')
 }
 
-// During build, create a mock client that throws on any operation
+// During build, create a mock client that doesn't connect to database
 export const db =
   globalForPrisma.prisma ??
   (isBuildTime ? createMockPrismaClient() : new PrismaClient({
