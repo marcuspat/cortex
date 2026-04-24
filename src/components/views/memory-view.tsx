@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Search,
   Mail,
@@ -639,10 +640,16 @@ export default function MemoryView() {
     [queryParams]
   );
 
-  // Reset offset when filters change
+  // Track authentication state
+  const { data: session, status: authStatus } = useSession();
+
+  // Reset offset when filters change or authentication state changes
   useEffect(() => {
-    fetchMemories(0, false);
-  }, [fetchMemories, queryParams]);
+    // Fetch memories when filters change or when user logs in/out
+    if (authStatus === 'authenticated' || authStatus === 'unauthenticated') {
+      fetchMemories(0, false);
+    }
+  }, [fetchMemories, queryParams, authStatus, session?.user?.id]);
 
   // ─── Open detail panel ───────────────────────────────────────────────────
   const handleOpenDetail = useCallback(async (memoryId: string) => {

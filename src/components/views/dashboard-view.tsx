@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { useCortexStore } from '@/lib/store';
 import type { DashboardStats, AgentStatus, InsightCard, InsightType } from '@/lib/types';
 import { formatRelativeTime, truncate } from '@/lib/helpers';
@@ -141,9 +142,15 @@ export default function DashboardView() {
     }
   }, []);
 
+  // Track authentication state
+  const { data: session, status: authStatus } = useSession();
+
   useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+    // Fetch dashboard on mount and when authentication state changes
+    if (authStatus === 'authenticated' || authStatus === 'unauthenticated') {
+      fetchDashboard();
+    }
+  }, [fetchDashboard, authStatus, session?.user?.id]);
 
   // ── Quick action handlers ──
 

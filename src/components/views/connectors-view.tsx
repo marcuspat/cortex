@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import {
   Card,
   CardHeader,
@@ -358,9 +359,15 @@ export default function ConnectorsView() {
     }
   }, [])
 
+  // Track authentication state
+  const { data: session, status: authStatus } = useSession()
+
   useEffect(() => {
-    fetchConnectors()
-  }, [fetchConnectors])
+    // Fetch connectors on mount and when authentication state changes
+    if (authStatus === 'authenticated' || authStatus === 'unauthenticated') {
+      fetchConnectors()
+    }
+  }, [fetchConnectors, authStatus, session?.user?.id])
 
   // Sync a single connector
   const handleSync = useCallback(async (id: string) => {
