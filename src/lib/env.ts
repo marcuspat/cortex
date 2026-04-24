@@ -15,6 +15,7 @@ const envSchema = z.object({
   // ===========================================
   DATABASE_URL: z
     .string()
+    .optional()
     .describe('Database connection string (PostgreSQL or SQLite for local dev)'),
 
   // ===========================================
@@ -101,7 +102,7 @@ export const env = envSchema.parse({
 console.log('🔧 Environment configuration:')
 console.log(`  NODE_ENV: ${env.NODE_ENV}`)
 console.log(`  NEXTAUTH_URL: ${env.NEXTAUTH_URL}`)
-console.log(`  DATABASE_URL: ${env.DATABASE_URL ? '✅ Set' : '❌ Missing'}`)
+console.log(`  DATABASE_URL: ${env.DATABASE_URL ? '✅ Set' : '❌ Missing (app will have limited functionality)'}`)
 console.log(`  NEXTAUTH_SECRET: ${env.NEXTAUTH_SECRET ? '✅ Set' : '❌ Missing'}`)
 
 /**
@@ -149,13 +150,15 @@ try {
       console.error('\nPlease check your .env file or Railway environment variables.')
       console.error('See .env.example for required variables.\n')
 
-      // Only exit on critical errors (DATABASE_URL) in production
+      // Don't exit on validation errors - let the app try to run
+      // Log warning instead of killing the process
       const hasCriticalErrors = error.errors.some(err =>
         err.path.includes('DATABASE_URL')
       )
 
       if (hasCriticalErrors && process.env.NODE_ENV === 'production') {
-        process.exit(1)
+        console.warn('⚠️ Critical environment variable error detected, but continuing anyway...')
+        console.warn('⚠️ App may not function correctly without proper database configuration')
       }
     }
   } else {
