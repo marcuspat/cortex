@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
 import { withRateLimit } from '@/lib/rate-limit'
 import { RateLimitType } from '@/lib/rate-limit'
+import { AuthRequiredError, generateRequestId } from '@/lib/errors'
 
 async function getMemoriesHandler(request: NextRequest) {
+  const requestId = generateRequestId()
+  const startTime = Date.now()
+
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    throw new AuthRequiredError()
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -15,7 +26,9 @@ async function getMemoriesHandler(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const offset = parseInt(searchParams.get('offset') || '0', 10)
 
-    const where: Prisma.MemoryWhereInput = {}
+    const where: Prisma.MemoryWhereInput = {
+      userId, // CRITICAL: Filter by userId for data isolation
+    }
 
     if (search) {
       where.OR = [
@@ -65,7 +78,7 @@ async function getMemoriesHandler(request: NextRequest) {
       db.memory.count({ where }),
     ])
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       data: memories,
       pagination: {
         total,
@@ -73,12 +86,14 @@ async function getMemoriesHandler(request: NextRequest) {
         offset,
       },
     })
+
+    response.headers.set('x-request-id', requestId)
+    response.headers.set('x-response-time', `${Date.now() - startTime}ms`)
+
+    return response
   } catch (error) {
     console.error('Memories list error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch memories' },
-      { status: 500 }
-    )
+    throw error
   }
 }
 

@@ -1,8 +1,21 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import type { DashboardStats } from '@/lib/types';
+import { NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth-helpers'
+import { db } from '@/lib/db'
+import { withRateLimit } from '@/lib/rate-limit'
+import { RateLimitType } from '@/lib/rate-limit'
+import { AuthRequiredError, generateRequestId } from '@/lib/errors'
+import type { DashboardStats } from '@/lib/types'
 
-export async function GET() {
+async function dashboardHandler() {
+  const requestId = generateRequestId()
+  const startTime = Date.now()
+
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    throw new AuthRequiredError()
+  }
+
   try {
     const [
       connectors,
@@ -11,47 +24,55 @@ export async function GET() {
       recentTraces,
       recentInsights,
     ] = await Promise.all([
-      db.connector.findMany(),
-      db.memory.findMany(),
-      db.insightCard.findMany(),
+      db.connector.findMany({
+        where: { userId }, // CRITICAL: Filter by user
+      }),
+      db.memory.findMany({
+        where: { userId }, // CRITICAL: Filter by user
+      }),
+      db.insightCard.findMany({
+        where: { userId }, // CRITICAL: Filter by user
+      }),
       db.agentTrace.findMany({
+        where: { userId }, // CRITICAL: Filter by user
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
       db.insightCard.findMany({
+        where: { userId }, // CRITICAL: Filter by user
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
-    ]);
+    ])
 
-    const totalConnectors = connectors.length;
+    const totalConnectors = connectors.length
     const activeConnectors = connectors.filter(
       (c) => c.status === 'active'
-    ).length;
-    const totalMemories = memories.length;
-    const totalInsights = insightCards.length;
+    ).length
+    const totalMemories = memories.length
+    const totalInsights = insightCards.length
     const pendingInsights = insightCards.filter(
       (i) => i.status === 'pending'
-    ).length;
+    ).length
 
     // Memory distribution by sourceType
-    const memoryBySource: { source: string; count: number }[] = [];
-    const memorySourceMap: Record<string, number> = {};
+    const memoryBySource: { source: string; count: number }[] = []
+    const memorySourceMap: Record<string, number> = {}
     for (const m of memories) {
-      memorySourceMap[m.sourceType] = (memorySourceMap[m.sourceType] || 0) + 1;
+      memorySourceMap[m.sourceType] = (memorySourceMap[m.sourceType] || 0) + 1
     }
     for (const [source, count] of Object.entries(memorySourceMap)) {
-      memoryBySource.push({ source, count });
+      memoryBySource.push({ source, count })
     }
 
     // Insight card distribution by type
-    const insightsByType: { type: string; count: number }[] = [];
-    const insightTypeMap: Record<string, number> = {};
+    const insightsByType: { type: string; count: number }[] = []
+    const insightTypeMap: Record<string, number> = {}
     for (const i of insightCards) {
-      insightTypeMap[i.type] = (insightTypeMap[i.type] || 0) + 1;
+      insightTypeMap[i.type] = (insightTypeMap[i.type] || 0) + 1
     }
     for (const [type, count] of Object.entries(insightTypeMap)) {
-      insightsByType.push({ type, count });
+      insightsByType.push({ type, count })
     }
 
     const body: DashboardStats = {
@@ -89,14 +110,19 @@ export async function GET() {
       })),
       memoryBySource,
       insightsByType,
-    };
+    }
 
-    return NextResponse.json(body);
+    const response = NextResponse.json(body)
+
+    response.headers.set('x-request-id', requestId)
+    response.headers.set('x-response-time', `${Date.now() - startTime}ms`)
+
+    return response
   } catch (error) {
-    console.error('Dashboard fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch dashboard data' },
-      { status: 500 }
-    );
+    console.error('Dashboard fetch error:', error)
+    throw error
   }
 }
+
+// Wrap with rate limiting
+export const GET = withRateLimit(dashboardHandler, RateLimitType.GENERAL)
