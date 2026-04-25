@@ -1,0 +1,37 @@
+{
+  "name": "@claude-flow/memory",
+  "version": "3.0.0",
+  "description": "ADR-006: Unified Memory Service",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "ioredis": "^5.0.0",
+    "better-sqlite3": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/ioredis": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./adapters/sqlite": {
+      "import": "./adapters/sqlite.ts",
+      "types": "./adapters/sqlite.ts"
+    },
+    "./adapters/redis": {
+      "import": "./adapters/redis.ts",
+      "types": "./adapters/redis.ts"
+    }
+  }
+}

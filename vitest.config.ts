@@ -23,6 +23,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@/lib/db': path.resolve(__dirname, './src/lib/db.ts'),
+      '@/v3': path.resolve(__dirname, './v3'),
     },
   },
 })

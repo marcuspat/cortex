@@ -1,0 +1,95 @@
+{
+  "agents": {
+    "agent-1777134165933-ip927a": {
+      "agentId": "agent-1777134165933-ip927a",
+      "agentType": "backend-dev",
+      "status": "active",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-04-25T16:22:45.934Z",
+      "domain": "mcp-api-memory-eventsourcing",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit",
+      "currentTask": "task-1777134161954-yu6vds"
+    },
+    "agent-1777134165944-anyc6y": {
+      "agentId": "agent-1777134165944-anyc6y",
+      "agentType": "ddd-domain-expert",
+      "status": "active",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-04-25T16:22:45.944Z",
+      "domain": "ddd-architecture-coordination",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit",
+      "currentTask": "task-1777134158170-99adx6"
+    },
+    "agent-1777134165957-x53676": {
+      "agentId": "agent-1777134165957-x53676",
+      "agentType": "adr-architect",
+      "status": "active",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "opus"
+      },
+      "createdAt": "2026-04-25T16:22:45.957Z",
+      "domain": "adr-validation-documentation",
+      "model": "opus",
+      "modelRoutedBy": "explicit",
+      "currentTask": "task-1777134161932-fs3umu"
+    },
+    "agent-plugin-architect": {
+      "agentId": "agent-plugin-architect",
+      "agentType": "plugin-architect",
+      "status": "active",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-04-25T16:53:50.035Z",
+      "domain": "plugins",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit",
+      "currentTask": "task-1777136025972-h7oalv"
+    },
+    "agent-mcp-engineer": {
+      "agentId": "agent-mcp-engineer",
+      "agentType": "mcp-engineer",
+      "status": "active",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-04-25T16:53:50.047Z",
+      "domain": "mcp-api",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit",
+      "currentTask": "task-1777136025988-9dyzcq"
+    },
+    "agent-memory-specialist": {
+      "agentId": "agent-memory-specialist",
+      "agentType": "memory-specialist",
+      "status": "active",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-04-25T16:53:50.071Z",
+      "domain": "memory-systems",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit",
+      "currentTask": "task-1777136026075-qo7pqk"
+    }
+  },
+  "version": "3.0.0"
+}
