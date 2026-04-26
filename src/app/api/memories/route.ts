@@ -1,3 +1,6 @@
+// Force dynamic rendering - don't prerender at build time
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
@@ -5,6 +8,7 @@ import { Prisma } from '@prisma/client'
 import { withRateLimit } from '@/lib/rate-limit'
 import { RateLimitType } from '@/lib/rate-limit'
 import { AuthRequiredError, generateRequestId } from '@/lib/errors'
+import { logger } from '@/lib/logger'
 
 async function getMemoriesHandler(request: NextRequest) {
   const requestId = generateRequestId()
@@ -13,6 +17,59 @@ async function getMemoriesHandler(request: NextRequest) {
   const userId = await getCurrentUserId()
 
   if (!userId) {
+    logger.warn('Unauthorized memories list attempt', { requestId })
+
+    // DEV MODE: Return sample data for testing without OAuth
+    if (process.env.NODE_ENV === 'development') {
+      return NextResponse.json({
+        data: [
+          {
+            id: 'sample-mem-1',
+            title: 'Project Planning Notes',
+            content: 'Discussed timeline and deliverables for Q2. Key milestones identified.',
+            sourceType: 'notion',
+            connectorId: 'conn-1',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            accessCount: 5,
+            relevanceScore: 0.89,
+            sourceTimestamp: new Date().toISOString(),
+            connector: { id: 'conn-1', name: 'Notion Workspace', type: 'notion' },
+            entities: [],
+          },
+          {
+            id: 'sample-mem-2',
+            title: 'Gmail Thread: API Integration',
+            content: 'Thread about integrating the new API endpoints. Discussed authentication flow.',
+            sourceType: 'gmail',
+            connectorId: 'conn-2',
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+            updatedAt: new Date(Date.now() - 86400000).toISOString(),
+            accessCount: 12,
+            relevanceScore: 0.92,
+            sourceTimestamp: new Date(Date.now() - 86400000).toISOString(),
+            connector: { id: 'conn-2', name: 'Gmail', type: 'gmail' },
+            entities: [],
+          },
+          {
+            id: 'sample-mem-3',
+            title: 'GitHub PR Review',
+            content: 'Pull request #123 reviewing the new authentication middleware. Several improvements suggested.',
+            sourceType: 'github',
+            connectorId: 'conn-3',
+            createdAt: new Date(Date.now() - 172800000).toISOString(),
+            updatedAt: new Date(Date.now() - 172800000).toISOString(),
+            accessCount: 8,
+            relevanceScore: 0.85,
+            sourceTimestamp: new Date(Date.now() - 172800000).toISOString(),
+            connector: { id: 'conn-3', name: 'GitHub', type: 'github' },
+            entities: [],
+          },
+        ],
+        pagination: { total: 3, limit: 20, offset: 0 },
+      })
+    }
+
     throw new AuthRequiredError()
   }
 
@@ -25,6 +82,8 @@ async function getMemoriesHandler(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'desc'
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const offset = parseInt(searchParams.get('offset') || '0', 10)
+
+    logger.logRequest(requestId, 'GET', '/api/memories', userId)
 
     const where: Prisma.MemoryWhereInput = {
       userId, // CRITICAL: Filter by userId for data isolation
@@ -90,9 +149,10 @@ async function getMemoriesHandler(request: NextRequest) {
     response.headers.set('x-request-id', requestId)
     response.headers.set('x-response-time', `${Date.now() - startTime}ms`)
 
+    logger.logResponse(requestId, 'GET', '/api/memories', 200, Date.now() - startTime)
     return response
   } catch (error) {
-    console.error('Memories list error:', error)
+    logger.logError(requestId, error as Error, { path: '/api/memories', userId })
     throw error
   }
 }

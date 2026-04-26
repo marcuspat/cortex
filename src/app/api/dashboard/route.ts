@@ -1,3 +1,6 @@
+// Force dynamic rendering - don't prerender at build time
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
@@ -12,7 +15,12 @@ async function dashboardHandler() {
 
   const userId = await getCurrentUserId()
 
-  if (!userId) {
+  // Use demo user for unauthenticated requests in development
+  const effectiveUserId = userId || (process.env.NODE_ENV === 'development'
+    ? (await db.user.findUnique({ where: { email: 'demo@cortex.ai' } }))?.id
+    : null)
+
+  if (!effectiveUserId) {
     throw new AuthRequiredError()
   }
 
@@ -25,21 +33,21 @@ async function dashboardHandler() {
       recentInsights,
     ] = await Promise.all([
       db.connector.findMany({
-        where: { userId }, // CRITICAL: Filter by user
+        where: { userId: effectiveUserId }, // CRITICAL: Filter by user
       }),
       db.memory.findMany({
-        where: { userId }, // CRITICAL: Filter by user
+        where: { userId: effectiveUserId }, // CRITICAL: Filter by user
       }),
       db.insightCard.findMany({
-        where: { userId }, // CRITICAL: Filter by user
+        where: { userId: effectiveUserId }, // CRITICAL: Filter by user
       }),
       db.agentTrace.findMany({
-        where: { userId }, // CRITICAL: Filter by user
+        where: { userId: effectiveUserId }, // CRITICAL: Filter by user
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
       db.insightCard.findMany({
-        where: { userId }, // CRITICAL: Filter by user
+        where: { userId: effectiveUserId }, // CRITICAL: Filter by user
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),

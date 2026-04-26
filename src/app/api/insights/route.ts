@@ -1,3 +1,6 @@
+// Force dynamic rendering - don't prerender at build time
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUserId } from '@/lib/auth-helpers'
 import { db } from '@/lib/db'
