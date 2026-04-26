@@ -61,6 +61,9 @@ async function checkRedis(): Promise<{ status: 'pass' | 'fail'; message?: string
 async function checkEmbeddings(): Promise<{ status: 'pass' | 'fail' | 'skip'; message?: string }> {
   try {
     const client = getEmbeddingClient();
+    if (!client) {
+      return { status: 'skip', message: 'Embedding client not available' };
+    }
     await client.testConnection();
     return { status: 'pass' };
   } catch (error) {
