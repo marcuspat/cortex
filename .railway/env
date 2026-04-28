@@ -1,0 +1,25 @@
+# Railway Environment Configuration
+# Add these variables to your Railway service settings
+
+# Database (Required)
+DATABASE_URL=postgresql://postgres:JtseGkMUmPvtxbfzNaognUOjSlIYAVSz@shinkansen.proxy.rlwy.net:48461/railway
+
+# NextAuth (Required)
+NEXTAUTH_SECRET=J/+FdHSiXmF1IQd1iT6VggT+Qr+axV7bRYjyCobA1nE=
+NEXTAUTH_URL=https://exciting-simplicity-production-278d.up.railway.app
+
+# Environment (Required)
+NODE_ENV=production
+
+# OAuth Providers (Optional - Add your own credentials)
+# GOOGLE_CLIENT_ID=your-google-client-id
+# GOOGLE_CLIENT_SECRET=your-google-client-secret
+# GITHUB_CLIENT_ID=your-github-client-id
+# GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# OpenAI (Optional - For AI features)
+# OPENAI_API_KEY=your-openai-api-key
+
+# Upstash Redis (Optional - For rate limiting)
+# UPSTASH_REDIS_REST_URL=your-upstash-url
+# UPSTASH_REDIS_REST_TOKEN=your-upstash-token
